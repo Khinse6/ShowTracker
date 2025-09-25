@@ -11,6 +11,7 @@ public static class SeasonMapper
 			{
 				Id = season.Id,
 				SeasonNumber = season.SeasonNumber,
+				ReleaseDate = season.ReleaseDate,
 				Episodes = season.Episodes?.Select(e => e.ToDto()).ToList() ?? new List<EpisodeDto>()
 			};
 }

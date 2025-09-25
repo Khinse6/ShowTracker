@@ -10,6 +10,6 @@ builder.Services.AddSqlite<ShowStoreContext>(connString);
 var app = builder.Build();
 
 app.MapShowsEndpoints();
-app.MigrateDB();
+await app.MigrateDBAsync();
 
 app.Run();

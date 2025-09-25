@@ -15,72 +15,54 @@ public static class ShowsEndpoints
 
         // GET all shows (summary)
         group.MapGet("/", async (ShowStoreContext dbContext) =>
-        {
-            var shows = await dbContext.Shows
-                .Include(s => s.Genres)
-                .ToListAsync();
-
-            var showDtos = shows.Select(s => s.ToSummaryDto()).ToList();
-
-            return Results.Ok(showDtos);
-        });
+            await dbContext.Shows
+                .Include(show => show.Genres)
+                .Select(show => show.ToShowSummaryDto())
+                .AsNoTracking()
+                .ToListAsync());
 
         // GET show by id
         group.MapGet("/{id}", async (int id, ShowStoreContext dbContext) =>
         {
-            var show = await dbContext.Shows
-                .Include(s => s.Genres)
-                .Include(s => s.Seasons)
-                    .ThenInclude(se => se.Episodes)
-                .FirstOrDefaultAsync(s => s.Id == id);
+            Show? show = await dbContext.Shows
+            .Include(s => s.Genres)
+            .Include(s => s.Seasons)
+                .ThenInclude(se => se.Episodes)
+            .FirstOrDefaultAsync(s => s.Id == id);
 
-            if (show == null)
-                return Results.NotFound();
+            return show is null ? Results.NotFound() : Results.Ok(show.ToShowDetailsDto());
 
-            var showDto = show.ToDto();
-            return Results.Ok(showDto);
         }).WithName(GetShowEndpoint);
 
         // POST create new show
-        group.MapPost("/", async (ShowCreateDto createDto, ShowStoreContext dbContext) =>
+        group.MapPost("/", async (ShowCreateDto newShow, ShowStoreContext dbContext) =>
         {
-            var show = createDto.ToEntity();
-
+            Show show = newShow.ToEntity();
             dbContext.Shows.Add(show);
             await dbContext.SaveChangesAsync();
 
-            var showDto = show.ToDto();
-            return Results.CreatedAtRoute(GetShowEndpoint, new { id = show.Id }, showDto);
+            return Results.CreatedAtRoute(GetShowEndpoint, new { id = show.Id }, show.ToShowSummaryDto());
         });
 
         // PUT update existing show
         group.MapPut("/{id}", async (int id, ShowUpdateDto updateDto, ShowStoreContext dbContext) =>
         {
-            var show = await dbContext.Shows
-                .Include(s => s.Seasons)
-                .Include(s => s.Genres)
-                .FirstOrDefaultAsync(s => s.Id == id);
+            Show? existingShow = await dbContext.Shows.FindAsync(id);
 
-            if (show == null) return Results.NotFound();
+            if (existingShow is null) { return Results.NotFound(); }
 
-
-            updateDto.UpdateEntity(show);
+            dbContext.Entry(existingShow).CurrentValues.SetValues(updateDto.ToEntity());
             await dbContext.SaveChangesAsync();
+
             return Results.NoContent();
         });
 
         // DELETE show
         group.MapDelete("/{id}", async (int id, ShowStoreContext dbContext) =>
         {
-            var show = await dbContext.Shows
-                .Include(s => s.Seasons)
-                    .ThenInclude(se => se.Episodes)
-                .FirstOrDefaultAsync(s => s.Id == id);
-
-            if (show == null) return Results.NotFound();
-
-            dbContext.Shows.Remove(show);
-            await dbContext.SaveChangesAsync();
+            await dbContext.Shows
+                .Where(show => show.Id == id)
+                .ExecuteDeleteAsync();
 
             return Results.NoContent();
         });

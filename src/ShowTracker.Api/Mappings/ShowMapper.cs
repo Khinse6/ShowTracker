@@ -5,47 +5,48 @@ namespace ShowTracker.Api.Mappings;
 
 public static class ShowMapper
 {
-	// Show → ShowDto
-	public static ShowDto ToDto(this Show show) =>
-			new ShowDto
-			{
-				Id = show.Id,
-				Title = show.Title,
-				Description = show.Description,
-				ReleaseDate = show.ReleaseDate,
-				Genres = show.Genres?.Select(g => g.Name).ToList() ?? new List<string>(),
-				Seasons = show.Seasons?.Select(s => s.ToDto()).ToList() ?? new List<SeasonDto>()
-			};
-
-	// Show → ShowSummaryDto
-	public static ShowSummaryDto ToSummaryDto(this Show show) =>
-				new ShowSummaryDto
-				{
-					Id = show.Id,
-					Title = show.Title,
-					Description = show.Description,
-					Genres = show.Genres?.Select(g => g.Name).ToList() ?? new List<string>()
-				};
-
-	// ShowCreateDto → Show
-	public static Show ToEntity(this ShowCreateDto dto) =>
-			new Show
-			{
-				Title = dto.Title,
-				Description = dto.Description,
-				ReleaseDate = dto.ReleaseDate
-			};
-
-	// ShowUpdateDto → Show (manual patching)
-	public static void UpdateEntity(this ShowUpdateDto dto, Show show)
+	public static Show ToEntity(this ShowCreateDto dto)
 	{
-		if (dto.Title != null)
-			show.Title = dto.Title;
+		return new Show()
+		{
+			Title = dto.Title,
+			Description = dto.Description,
+			ReleaseDate = dto.ReleaseDate
+		};
+	}
 
-		if (dto.Description != null)
-			show.Description = dto.Description;
+	public static Show ToEntity(this ShowUpdateDto dto)
+	{
+		return new Show()
+		{
+			Title = dto.Title,
+			Description = dto.Description,
+			ReleaseDate = dto.ReleaseDate
+		};
+	}
 
-		if (dto.ReleaseDate is DateOnly releaseDate)
-			show.ReleaseDate = releaseDate;
+	public static ShowSummaryDto ToShowSummaryDto(this Show show)
+	{
+		return new ShowSummaryDto()
+		{
+			Id = show.Id,
+			Title = show.Title,
+			Description = show.Description,
+			ReleaseDate = show.ReleaseDate,
+			Genres = show.Genres?.Select(g => g.Name).ToList() ?? new List<string>()
+		};
+	}
+
+	public static ShowDetailsDto ToShowDetailsDto(this Show show)
+	{
+		return new ShowDetailsDto()
+		{
+			Id = show.Id,
+			Title = show.Title,
+			Description = show.Description,
+			ReleaseDate = show.ReleaseDate,
+			Genres = show.Genres?.Select(g => g.Name).ToList() ?? new List<string>(),
+			Seasons = show.Seasons?.Select(se => se.ToDto()).ToList() ?? new List<SeasonDto>()
+		};
 	}
 }

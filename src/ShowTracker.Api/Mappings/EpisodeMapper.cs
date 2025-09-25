@@ -11,6 +11,7 @@ public static class EpisodeMapper
 			{
 				Id = episode.Id,
 				Title = episode.Title,
+				ReleaseDate = episode.ReleaseDate,
 				EpisodeNumber = episode.EpisodeNumber
 			};
 }
