@@ -1,0 +1,31 @@
+### Get all shows
+GET http://localhost:5046/shows
+Accept: application/json
+
+### Get a single show by ID
+GET http://localhost:5046/shows/1
+Accept: application/json
+
+### Create a new show
+POST http://localhost:5046/shows
+Content-Type: application/json
+
+{
+  "title": "The Witcher",
+  "description": "A monster hunter navigates a dark fantasy world.",
+  "releaseDate": "2019-12-20",
+  "genreIds": [1, 2],
+  "featuredActors": ["Henry Cavill", "Anya Chalotra"]
+}
+
+### Update an existing show (PUT)
+PUT http://localhost:5046/shows/7
+Content-Type: application/json
+
+{
+  "genresId": ''
+}
+
+### Delete a show by ID
+DELETE http://localhost:5046/shows/6
+Accept: application/json

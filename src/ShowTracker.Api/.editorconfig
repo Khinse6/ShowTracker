@@ -1,0 +1,66 @@
+# .editorconfig for ShowTracker API
+root = true
+
+# All C# files
+[*.cs]
+indent_style = space
+indent_size = 4
+insert_final_newline = true
+charset = utf-8
+trim_trailing_whitespace = true
+
+# C# formatting rules
+csharp_new_line_before_open_brace = all
+csharp_preserve_single_line_blocks = false
+csharp_preserve_single_line_statements = false
+csharp_indent_block_contents = true
+csharp_indent_braces = false
+csharp_indent_labels = false
+csharp_indent_switch_labels = true
+csharp_indent_case_contents = true
+csharp_indent_case_contents_when_block = true
+csharp_space_after_keywords_in_control_flow_statements = true
+csharp_space_between_method_declaration_parameter_list_parentheses = false
+csharp_space_between_method_call_parameter_list_parentheses = false
+csharp_space_before_colon_in_inheritance_clause = true
+csharp_space_after_colon_in_inheritance_clause = true
+
+# Enforce braces for all control blocks
+csharp_style_require_braces = true:error
+
+# Method chain alignment
+# Indent chained method calls once per line
+csharp_indent_chained_method_calls = true
+# .editorconfig for ShowTracker API
+root = true
+
+# All C# files
+[*.cs]
+indent_style = space
+indent_size = 4
+insert_final_newline = true
+charset = utf-8
+trim_trailing_whitespace = true
+
+# C# formatting rules
+csharp_new_line_before_open_brace = all
+csharp_preserve_single_line_blocks = true
+csharp_preserve_single_line_statements = true
+csharp_indent_block_contents = true
+csharp_indent_braces = false
+csharp_indent_labels = false
+csharp_indent_switch_labels = true
+csharp_indent_case_contents = true
+csharp_indent_case_contents_when_block = true
+csharp_space_after_keywords_in_control_flow_statements = true
+csharp_space_between_method_declaration_parameter_list_parentheses = false
+csharp_space_between_method_call_parameter_list_parentheses = false
+csharp_space_before_colon_in_inheritance_clause = true
+csharp_space_after_colon_in_inheritance_clause = true
+
+# Enforce braces for all control blocks
+csharp_style_require_braces = true:error
+
+# Method chain alignment
+# Indent chained method calls once per line
+csharp_indent_chained_method_calls = true
