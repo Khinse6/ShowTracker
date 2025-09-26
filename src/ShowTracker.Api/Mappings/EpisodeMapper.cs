@@ -5,13 +5,13 @@ namespace ShowTracker.Api.Mappings;
 
 public static class EpisodeMapper
 {
-	// Episode → EpisodeDto
-	public static EpisodeDto ToDto(this Episode episode) =>
-			new EpisodeDto
-			{
-				Id = episode.Id,
-				Title = episode.Title,
-				ReleaseDate = episode.ReleaseDate,
-				EpisodeNumber = episode.EpisodeNumber
-			};
+    // Episode → EpisodeDto
+    public static EpisodeDto ToDto(this Episode episode) =>
+            new EpisodeDto
+            {
+                Id = episode.Id,
+                Title = episode.Title,
+                ReleaseDate = episode.ReleaseDate,
+                EpisodeNumber = episode.EpisodeNumber
+            };
 }

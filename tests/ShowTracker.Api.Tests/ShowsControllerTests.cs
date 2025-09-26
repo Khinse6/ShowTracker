@@ -1,175 +1,171 @@
-using System.Collections.Generic;
-using System.Threading.Tasks;
+using AutoFixture;
+using AutoFixture.AutoMoq;
 using Microsoft.AspNetCore.Mvc;
 using Moq;
 using ShowTracker.Api.Controllers;
 using ShowTracker.Api.Dtos;
 using ShowTracker.Api.Services;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 using Xunit;
 
-namespace ShowTracker.Api.Tests
+namespace ShowTracker.Api.Tests.Controllers
 {
 	public class ShowsControllerTests
 	{
-		private readonly Mock<IShowService> _mockService;
+		private readonly IFixture _fixture;
+		private readonly Mock<IShowService> _showServiceMock;
 		private readonly ShowsController _controller;
 
 		public ShowsControllerTests()
 		{
-			_mockService = new Mock<IShowService>();
-			_controller = new ShowsController(_mockService.Object);
+			_fixture = new Fixture().Customize(new AutoMoqCustomization());
+			_showServiceMock = _fixture.Freeze<Mock<IShowService>>();
+			_controller = new ShowsController(_showServiceMock.Object);
+
+			// Customize DateOnly globally to generate valid random dates
+			_fixture.Customize<DateOnly>(c => c.FromFactory(() =>
+			{
+				var today = DateTime.Today;
+				var random = new Random();
+				int year = random.Next(2000, today.Year + 1);
+				int month = random.Next(1, 13);
+				int day = random.Next(1, DateTime.DaysInMonth(year, month) + 1);
+				return new DateOnly(year, month, day);
+			}));
 		}
 
 		[Fact]
 		public async Task GetAllShows_ReturnsOkWithShows()
 		{
-			// Arrange
-			var shows = new List<ShowSummaryDto>
-						{
-								new() { Id = 1, Title = "Show1", Description = "Desc1", ReleaseDate = new DateOnly(2023, 1, 1) },
-								new() { Id = 2, Title = "Show2", Description = "Desc2", ReleaseDate = new DateOnly(2023, 1, 2) }
-						};
-			_mockService.Setup(s => s.GetAllShowsAsync()).ReturnsAsync(shows);
+			var shows = _fixture.CreateMany<ShowSummaryDto>(3).ToList();
+			_showServiceMock.Setup(s => s.GetAllShowsAsync()).ReturnsAsync(shows);
 
-			// Act
 			var result = await _controller.GetAllShows();
 
-			// Assert
 			var okResult = Assert.IsType<OkObjectResult>(result.Result);
-			var returnShows = Assert.IsType<List<ShowSummaryDto>>(okResult.Value);
-			Assert.Equal(2, returnShows.Count);
+			var returnValue = Assert.IsAssignableFrom<List<ShowSummaryDto>>(okResult.Value!);
+			Assert.Equal(3, returnValue.Count);
 		}
 
 		[Fact]
-		public async Task GetShow_ReturnsOk_WhenShowExists()
+		public async Task GetShow_WhenFound_ReturnsOkWithShow()
 		{
-			// Arrange
-			var show = new ShowDetailsDto
-			{
-				Id = 1,
-				Title = "Show1",
-				Description = "Desc1",
-				ReleaseDate = new DateOnly(2023, 1, 1)
-			};
-			_mockService.Setup(s => s.GetShowByIdAsync(1)).ReturnsAsync(show);
+			var show = _fixture.Create<ShowDetailsDto>();
+			_showServiceMock.Setup(s => s.GetShowByIdAsync(show.Id)).ReturnsAsync(show);
 
-			// Act
-			var result = await _controller.GetShow(1);
+			var result = await _controller.GetShow(show.Id);
 
-			// Assert
 			var okResult = Assert.IsType<OkObjectResult>(result.Result);
-			var returnShow = Assert.IsType<ShowDetailsDto>(okResult.Value);
-			Assert.Equal(1, returnShow.Id);
+			var returnValue = Assert.IsType<ShowDetailsDto>(okResult.Value!);
+			Assert.Equal(show.Id, returnValue.Id);
 		}
 
 		[Fact]
-		public async Task GetShow_ReturnsNotFound_WhenShowDoesNotExist()
+		public async Task GetShow_WhenNotFound_ReturnsNotFound()
 		{
-			// Arrange
-			_mockService.Setup(s => s.GetShowByIdAsync(1)).ReturnsAsync((ShowDetailsDto?)null);
+			_showServiceMock.Setup(s => s.GetShowByIdAsync(It.IsAny<int>())).ReturnsAsync((ShowDetailsDto?)null);
 
-			// Act
 			var result = await _controller.GetShow(1);
 
-			// Assert
 			Assert.IsType<NotFoundResult>(result.Result);
 		}
 
 		[Fact]
-		public async Task CreateShow_ReturnsCreatedAtRoute()
+		public async Task CreateShow_ValidDto_ReturnsCreatedAtRoute()
 		{
-			// Arrange
-			var createDto = new ShowCreateDto
+			var dto = _fixture.Create<ShowCreateDto>();
+			var created = _fixture.Build<ShowSummaryDto>()
+														.With(x => x.Id, 1)
+														.With(x => x.ReleaseDate, dto.ReleaseDate)
+														.Create();
+
+			_showServiceMock.Setup(s => s.CreateShowAsync(dto)).ReturnsAsync(created);
+
+			var result = await _controller.CreateShow(dto);
+
+			var createdAtRouteResult = Assert.IsType<CreatedAtRouteResult>(result.Result);
+			Assert.Equal("GetShow", createdAtRouteResult.RouteName);
+			Assert.Equal(created.Id, createdAtRouteResult.RouteValues["id"]);
+		}
+
+		[Theory]
+		[InlineData("", "Some description")]
+		[InlineData("Title", "")]
+		[InlineData("", "")]
+		public async Task CreateShow_InvalidDto_ReturnsBadRequest(string title, string description)
+		{
+			var dto = new ShowCreateDto
 			{
-				Title = "New Show",
-				Description = "Description",
-				ReleaseDate = new DateOnly(2023, 1, 1)
+				Title = title,
+				Description = description,
+				ReleaseDate = DateOnly.FromDateTime(DateTime.Today)
 			};
 
-			var createdDto = new ShowSummaryDto
-			{
-				Id = 1,
-				Title = "New Show",
-				Description = "Description",
-				ReleaseDate = new DateOnly(2023, 1, 1)
-			};
-			_mockService.Setup(s => s.CreateShowAsync(createDto)).ReturnsAsync(createdDto);
+			var result = await _controller.CreateShow(dto);
 
-			// Act
-			var result = await _controller.CreateShow(createDto);
-
-			// Assert
-			var createdResult = Assert.IsType<CreatedAtRouteResult>(result.Result);
-			Assert.Equal("GetShow", createdResult.RouteName);
-			var returnDto = Assert.IsType<ShowSummaryDto>(createdResult.Value);
-			Assert.Equal(1, returnDto.Id);
+			Assert.IsType<BadRequestObjectResult>(result.Result);
 		}
 
 		[Fact]
-		public async Task UpdateShow_ReturnsNoContent_WhenShowExists()
+		public async Task UpdateShow_ValidDto_ReturnsNoContent()
 		{
-			// Arrange
-			var updateDto = new ShowUpdateDto
-			{
-				Title = "Updated Show",
-				Description = "Updated",
-				ReleaseDate = new DateOnly(2023, 1, 1)
-			};
+			var dto = _fixture.Create<ShowUpdateDto>();
+			_showServiceMock.Setup(s => s.UpdateShowAsync(1, It.IsAny<ShowUpdateDto>())).Returns(Task.CompletedTask);
 
-			_mockService.Setup(s => s.UpdateShowAsync(1, updateDto)).Returns(Task.CompletedTask);
+			var result = await _controller.UpdateShow(1, dto);
 
-			// Act
-			var result = await _controller.UpdateShow(1, updateDto);
-
-			// Assert
 			Assert.IsType<NoContentResult>(result);
 		}
 
 		[Fact]
-		public async Task UpdateShow_ReturnsNotFound_WhenShowDoesNotExist()
+		public async Task UpdateShow_NotFound_ReturnsNotFound()
 		{
-			// Arrange
-			var updateDto = new ShowUpdateDto
-			{
-				Title = "Updated Show",
-				Description = "Updated",
-				ReleaseDate = new DateOnly(2023, 1, 1)
-			};
+			var dto = _fixture.Create<ShowUpdateDto>();
+			_showServiceMock.Setup(s => s.UpdateShowAsync(1, It.IsAny<ShowUpdateDto>())).Throws<KeyNotFoundException>();
 
-			_mockService.Setup(s => s.UpdateShowAsync(1, updateDto))
-									.ThrowsAsync(new KeyNotFoundException());
+			var result = await _controller.UpdateShow(1, dto);
 
-			// Act
-			var result = await _controller.UpdateShow(1, updateDto);
-
-			// Assert
 			Assert.IsType<NotFoundResult>(result);
 		}
 
-		[Fact]
-		public async Task DeleteShow_ReturnsNoContent_WhenShowExists()
+		[Theory]
+		[InlineData("", "Some description")]
+		[InlineData("Title", "")]
+		[InlineData("", "")]
+		public async Task UpdateShow_InvalidDto_ReturnsBadRequest(string title, string description)
 		{
-			// Arrange
-			_mockService.Setup(s => s.DeleteShowAsync(1)).Returns(Task.CompletedTask);
+			var dto = new ShowUpdateDto
+			{
+				Title = title,
+				Description = description,
+				ReleaseDate = DateOnly.FromDateTime(DateTime.Today)
+			};
 
-			// Act
+			var result = await _controller.UpdateShow(1, dto);
+
+			Assert.IsType<BadRequestObjectResult>(result);
+		}
+
+		[Fact]
+		public async Task DeleteShow_WhenExists_ReturnsNoContent()
+		{
+			_showServiceMock.Setup(s => s.DeleteShowAsync(It.IsAny<int>())).Returns(Task.CompletedTask);
+
 			var result = await _controller.DeleteShow(1);
 
-			// Assert
 			Assert.IsType<NoContentResult>(result);
 		}
 
 		[Fact]
-		public async Task DeleteShow_ReturnsNotFound_WhenShowDoesNotExist()
+		public async Task DeleteShow_WhenNotFound_ReturnsNotFound()
 		{
-			// Arrange
-			_mockService.Setup(s => s.DeleteShowAsync(1))
-									.ThrowsAsync(new KeyNotFoundException());
+			_showServiceMock.Setup(s => s.DeleteShowAsync(It.IsAny<int>())).Throws<KeyNotFoundException>();
 
-			// Act
 			var result = await _controller.DeleteShow(1);
 
-			// Assert
 			Assert.IsType<NotFoundResult>(result);
 		}
 	}

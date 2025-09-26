@@ -21,6 +21,7 @@ builder.Services.AddControllers();
 // -----------------------
 // Register the interface + implementation
 builder.Services.AddScoped<IShowService, ShowService>();
+builder.Services.AddScoped<IShowGenresService, ShowGenresService>();
 
 // -----------------------
 // Swagger / OpenAPI
@@ -28,12 +29,12 @@ builder.Services.AddScoped<IShowService, ShowService>();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
-	c.SwaggerDoc("v1", new OpenApiInfo
-	{
-		Title = "ShowTracker API",
-		Version = "v1",
-		Description = "API for managing TV shows and seasons"
-	});
+    c.SwaggerDoc("v1", new OpenApiInfo
+    {
+        Title = "ShowTracker API",
+        Version = "v1",
+        Description = "API for managing TV shows and seasons"
+    });
 });
 
 // -----------------------
@@ -46,11 +47,11 @@ var app = builder.Build();
 // -----------------------
 if (app.Environment.IsDevelopment())
 {
-	app.UseSwagger();
-	app.UseSwaggerUI(c =>
-	{
-		c.SwaggerEndpoint("/swagger/v1/swagger.json", "ShowTracker API v1");
-	});
+    app.UseSwagger();
+    app.UseSwaggerUI(c =>
+    {
+        c.SwaggerEndpoint("/swagger/v1/swagger.json", "ShowTracker API v1");
+    });
 }
 
 app.UseHttpsRedirection();
