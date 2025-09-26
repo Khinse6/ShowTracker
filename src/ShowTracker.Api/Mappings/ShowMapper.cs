@@ -5,6 +5,7 @@ namespace ShowTracker.Api.Mappings;
 
 public static class ShowMapper
 {
+	// Create a New Show (ShowCreateDto -> Show)
 	public static Show ToEntity(this ShowCreateDto dto)
 	{
 		return new Show()
@@ -15,16 +16,15 @@ public static class ShowMapper
 		};
 	}
 
-	public static Show ToEntity(this ShowUpdateDto dto)
+	// Update an Existing Show (ShowUpdateDto -> Show)
+	public static void UpdateEntity(this ShowUpdateDto dto, Show show)
 	{
-		return new Show()
-		{
-			Title = dto.Title,
-			Description = dto.Description,
-			ReleaseDate = dto.ReleaseDate
-		};
+		show.Title = dto.Title;
+		show.Description = dto.Description;
+		show.ReleaseDate = dto.ReleaseDate;
 	}
 
+	// Get all Shows (Show -> ShowSummaryDto)
 	public static ShowSummaryDto ToShowSummaryDto(this Show show)
 	{
 		return new ShowSummaryDto()
@@ -37,6 +37,7 @@ public static class ShowMapper
 		};
 	}
 
+	// Get a single Show (Show -> ShowDetailsDto)
 	public static ShowDetailsDto ToShowDetailsDto(this Show show)
 	{
 		return new ShowDetailsDto()

@@ -1,13 +1,15 @@
+@baseUrl = http://localhost:5046/api
+
 ### Get all shows
-GET http://localhost:5046/shows
+GET {{baseUrl}}/shows
 Accept: application/json
 
 ### Get a single show by ID
-GET http://localhost:5046/shows/1
+GET {{baseUrl}}/shows/1
 Accept: application/json
 
 ### Create a new show
-POST http://localhost:5046/shows
+POST {{baseUrl}}/shows
 Content-Type: application/json
 
 {
@@ -17,16 +19,15 @@ Content-Type: application/json
 }
 
 ### Update an existing show (PUT)
-PUT http://localhost:5046/shows/1
+PUT {{baseUrl}}/shows/1
 Content-Type: application/json
 
 {
-  "title": "Stranger Things Updated Twice",
+  "title": "Stranger Things Updated",
   "description": "Updated description for Stranger Things.",
-  "releaseDate": "2016-07-15",
-  "genres": [1, 2, 3, 4]
+  "releaseDate": "2016-07-15"
 }
 
 ### Delete a show by ID
-DELETE http://localhost:5046/shows/4
+DELETE {{baseUrl}}/shows/4
 Accept: application/json
