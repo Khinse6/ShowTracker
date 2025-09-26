@@ -8,4 +8,5 @@ public class Show
     public required DateOnly ReleaseDate { get; set; }
     public List<Season> Seasons { get; set; } = new();
     public List<Genre> Genres { get; set; } = new();
+    public List<User> FavoritedByUsers { get; set; } = new();
 }

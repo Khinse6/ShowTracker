@@ -5,6 +5,15 @@ using ShowTracker.Api.Mappings;
 
 namespace ShowTracker.Api.Services;
 
+public interface IShowService
+{
+    Task<List<ShowSummaryDto>> GetAllShowsAsync();
+    Task<ShowDetailsDto?> GetShowByIdAsync(int id);
+    Task<ShowSummaryDto> CreateShowAsync(ShowCreateDto dto);
+    Task UpdateShowAsync(int id, ShowUpdateDto dto);
+    Task DeleteShowAsync(int id);
+}
+
 public class ShowService : IShowService
 {
     private readonly ShowStoreContext _dbContext;

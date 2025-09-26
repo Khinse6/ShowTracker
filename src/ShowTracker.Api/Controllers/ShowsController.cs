@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using ShowTracker.Api.Dtos;
 using ShowTracker.Api.Services;
@@ -5,7 +6,8 @@ using ShowTracker.Api.Services;
 namespace ShowTracker.Api.Controllers;
 
 [ApiController]
-[Route("api/[controller]")]
+[Route("api/shows")]
+[Authorize]
 public class ShowsController : ControllerBase
 {
     private readonly IShowService _showService;

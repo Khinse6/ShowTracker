@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using ShowTracker.Api.Data;
 
@@ -10,9 +11,11 @@ using ShowTracker.Api.Data;
 namespace ShowTracker.Api.Data.Migrations
 {
     [DbContext(typeof(ShowStoreContext))]
-    partial class ShowStoreContextModelSnapshot : ModelSnapshot
+    [Migration("20250926151116_IdentityAndShows")]
+    partial class IdentityAndShows
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "9.0.9");
@@ -297,39 +300,6 @@ namespace ShowTracker.Api.Data.Migrations
                         });
                 });
 
-            modelBuilder.Entity("ShowTracker.Api.Entities.RefreshToken", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
-
-                    b.Property<DateTime>("Created")
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTime>("Expires")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("ReplacedByToken")
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTime?>("Revoked")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Token")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("UserId")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("UserId");
-
-                    b.ToTable("RefreshTokens");
-                });
-
             modelBuilder.Entity("ShowTracker.Api.Entities.Season", b =>
                 {
                     b.Property<int>("Id")
@@ -582,17 +552,6 @@ namespace ShowTracker.Api.Data.Migrations
                     b.Navigation("Season");
                 });
 
-            modelBuilder.Entity("ShowTracker.Api.Entities.RefreshToken", b =>
-                {
-                    b.HasOne("ShowTracker.Api.Entities.User", "User")
-                        .WithMany("RefreshTokens")
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("User");
-                });
-
             modelBuilder.Entity("ShowTracker.Api.Entities.Season", b =>
                 {
                     b.HasOne("ShowTracker.Api.Entities.Show", "Show")
@@ -627,11 +586,6 @@ namespace ShowTracker.Api.Data.Migrations
             modelBuilder.Entity("ShowTracker.Api.Entities.Show", b =>
                 {
                     b.Navigation("Seasons");
-                });
-
-            modelBuilder.Entity("ShowTracker.Api.Entities.User", b =>
-                {
-                    b.Navigation("RefreshTokens");
                 });
 #pragma warning restore 612, 618
         }

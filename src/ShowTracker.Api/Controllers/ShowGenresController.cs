@@ -4,7 +4,7 @@ using ShowTracker.Api.Services;
 namespace ShowTracker.Api.Controllers;
 
 [ApiController]
-[Route("api/shows/{showId}/genres")]
+[Route("api/shows/{id}/genres")]
 public class ShowGenresController : ControllerBase
 {
     private readonly IShowGenresService _service;
@@ -14,13 +14,13 @@ public class ShowGenresController : ControllerBase
         _service = service;
     }
 
-    // GET api/shows/{showId}/genres
+    // GET api/shows/{id}/genres
     [HttpGet]
-    public async Task<ActionResult<List<string>>> GetGenres(int showId)
+    public async Task<ActionResult<List<string>>> GetGenres(int id)
     {
         try
         {
-            var genres = await _service.GetGenresForShowAsync(showId);
+            var genres = await _service.GetGenresForShowAsync(id);
             return Ok(genres);
         }
         catch (KeyNotFoundException)
@@ -29,13 +29,13 @@ public class ShowGenresController : ControllerBase
         }
     }
 
-    // POST api/shows/{showId}/genres/{genreId}
+    // POST api/shows/{id}/genres/{genreId}
     [HttpPost("{genreId}")]
-    public async Task<IActionResult> AddGenre(int showId, int genreId)
+    public async Task<IActionResult> AddGenre(int id, int genreId)
     {
         try
         {
-            await _service.AddGenreToShowAsync(showId, genreId);
+            await _service.AddGenreToShowAsync(id, genreId);
             return NoContent();
         }
         catch (KeyNotFoundException e)
@@ -44,13 +44,13 @@ public class ShowGenresController : ControllerBase
         }
     }
 
-    // PUT api/shows/{showId}/genres
+    // PUT api/shows/{id}/genres
     [HttpPut]
-    public async Task<IActionResult> ReplaceGenres(int showId, [FromBody] List<int> genreIds)
+    public async Task<IActionResult> ReplaceGenres(int id, [FromBody] List<int> genreIds)
     {
         try
         {
-            await _service.ReplaceGenresForShowAsync(showId, genreIds);
+            await _service.ReplaceGenresForShowAsync(id, genreIds);
             return NoContent();
         }
         catch (KeyNotFoundException e)
@@ -59,13 +59,13 @@ public class ShowGenresController : ControllerBase
         }
     }
 
-    // DELETE api/shows/{showId}/genres/{genreId}
+    // DELETE api/shows/{id}/genres/{genreId}
     [HttpDelete("{genreId}")]
-    public async Task<IActionResult> RemoveGenre(int showId, int genreId)
+    public async Task<IActionResult> RemoveGenre(int id, int genreId)
     {
         try
         {
-            await _service.RemoveGenreFromShowAsync(showId, genreId);
+            await _service.RemoveGenreFromShowAsync(id, genreId);
             return NoContent();
         }
         catch (KeyNotFoundException e)

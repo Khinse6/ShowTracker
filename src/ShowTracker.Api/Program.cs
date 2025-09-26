@@ -1,7 +1,13 @@
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using ShowTracker.Api.Data;
-using ShowTracker.Api.Services; // <-- add this for IShowService / ShowService
+using ShowTracker.Api.Entities;
+using ShowTracker.Api.Services;
+using ShowTracker.Api.Swagger; // <-- include the filter
+using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -12,6 +18,37 @@ var connString = builder.Configuration.GetConnectionString("ShowStore");
 builder.Services.AddSqlite<ShowStoreContext>(connString);
 
 // -----------------------
+// Identity
+// -----------------------
+builder.Services.AddIdentity<User, IdentityRole>()
+    .AddEntityFrameworkStores<ShowStoreContext>()
+    .AddDefaultTokenProviders();
+
+// -----------------------
+// JWT Authentication
+// -----------------------
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+})
+.AddJwtBearer(options =>
+{
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateIssuer = true,
+        ValidateAudience = true,
+        ValidateLifetime = true,
+        ValidateIssuerSigningKey = true,
+        ValidIssuer = builder.Configuration["Jwt:Issuer"],
+        ValidAudience = builder.Configuration["Jwt:Audience"],
+        IssuerSigningKey = new SymmetricSecurityKey(
+            Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]!)),
+        ClockSkew = TimeSpan.Zero
+    };
+});
+
+// -----------------------
 // Controllers
 // -----------------------
 builder.Services.AddControllers();
@@ -19,9 +56,9 @@ builder.Services.AddControllers();
 // -----------------------
 // Services
 // -----------------------
-// Register the interface + implementation
 builder.Services.AddScoped<IShowService, ShowService>();
 builder.Services.AddScoped<IShowGenresService, ShowGenresService>();
+builder.Services.AddScoped<IAuthService, AuthService>();
 
 // -----------------------
 // Swagger / OpenAPI
@@ -35,15 +72,29 @@ builder.Services.AddSwaggerGen(c =>
         Version = "v1",
         Description = "API for managing TV shows and seasons"
     });
+
+    // JWT Bearer authentication support
+    c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Description = "JWT Authorization header using the Bearer scheme. Example: 'Bearer {token}'",
+        Name = "Authorization",
+        In = ParameterLocation.Header,
+        Type = SecuritySchemeType.Http,
+        Scheme = "bearer",
+        BearerFormat = "JWT"
+    });
+
+    // Use the operation filter to show locks only on [Authorize] endpoints
+    c.OperationFilter<AuthorizeCheckOperationFilter>();
 });
 
 // -----------------------
-// Build the app
+// Build App
 // -----------------------
 var app = builder.Build();
 
 // -----------------------
-// Middleware pipeline
+// Middleware
 // -----------------------
 if (app.Environment.IsDevelopment())
 {
@@ -56,10 +107,14 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
+// Enable authentication & authorization
+app.UseAuthentication();
+app.UseAuthorization();
+
 // Map controller routes
 app.MapControllers();
 
-// Apply migrations (if you have this extension method)
+// Apply database migrations
 await app.MigrateDBAsync();
 
 app.Run();
