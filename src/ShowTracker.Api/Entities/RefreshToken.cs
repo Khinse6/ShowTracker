@@ -11,7 +11,6 @@ public class RefreshToken
     public string? ReplacedByToken { get; set; }
     public string UserId { get; set; } = null!;
     public User User { get; set; } = null!;
-
     public bool IsActive => Revoked == null && !IsExpired;
     public bool IsExpired => DateTime.UtcNow >= Expires;
 }

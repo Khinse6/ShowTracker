@@ -1,27 +1,32 @@
 namespace ShowTracker.Api.Dtos;
 
-public record class EpisodeDto
+public record class ShowSummaryDto
 {
     public int Id { get; set; }
     public required string Title { get; set; }
     public required string Description { get; set; }
-    public required int EpisodeNumber { get; set; }
     public required DateOnly ReleaseDate { get; set; }
+    public required string Type { get; set; }
+    public List<string> Genres { get; set; } = new();
 }
 
-public record class CreateEpisodeDto
+public record class ShowDetailsDto : ShowSummaryDto
 {
-    public required int SeasonId { get; set; }
-    public required string Title { get; set; }
-    public required string Description { get; set; }
-    public required int EpisodeNumber { get; set; }
-    public required DateOnly ReleaseDate { get; set; }
+    public List<SeasonDto> Seasons { get; set; } = new();
 }
 
-public record class UpdateEpisodeDto
+public record CreateShowDto
 {
     public required string Title { get; set; }
     public required string Description { get; set; }
-    public required int EpisodeNumber { get; set; }
     public required DateOnly ReleaseDate { get; set; }
+    public int ShowTypeId { get; set; }
+}
+
+public record UpdateShowDto
+{
+    public required string Title { get; set; }
+    public required string Description { get; set; }
+    public required DateOnly ReleaseDate { get; set; }
+    public int ShowTypeId { get; set; }
 }

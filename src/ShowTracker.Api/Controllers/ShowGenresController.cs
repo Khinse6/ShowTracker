@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using ShowTracker.Api.Services;
 
@@ -5,6 +6,7 @@ namespace ShowTracker.Api.Controllers;
 
 [ApiController]
 [Route("api/shows/{id}/genres")]
+[Authorize]
 public class ShowGenresController : ControllerBase
 {
     private readonly IShowGenresService _service;

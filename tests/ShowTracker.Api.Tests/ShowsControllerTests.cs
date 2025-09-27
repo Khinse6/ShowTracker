@@ -76,7 +76,7 @@ namespace ShowTracker.Api.Tests.Controllers
 		[Fact]
 		public async Task CreateShow_ValidDto_ReturnsCreatedAtRoute()
 		{
-			var dto = _fixture.Create<ShowCreateDto>();
+			var dto = _fixture.Create<CreateShowDto>();
 			var created = _fixture.Build<ShowSummaryDto>()
 														.With(x => x.Id, 1)
 														.With(x => x.ReleaseDate, dto.ReleaseDate)
@@ -97,7 +97,7 @@ namespace ShowTracker.Api.Tests.Controllers
 		[InlineData("", "")]
 		public async Task CreateShow_InvalidDto_ReturnsBadRequest(string title, string description)
 		{
-			var dto = new ShowCreateDto
+			var dto = new CreateShowDto
 			{
 				Title = title,
 				Description = description,
@@ -112,8 +112,8 @@ namespace ShowTracker.Api.Tests.Controllers
 		[Fact]
 		public async Task UpdateShow_ValidDto_ReturnsNoContent()
 		{
-			var dto = _fixture.Create<ShowUpdateDto>();
-			_showServiceMock.Setup(s => s.UpdateShowAsync(1, It.IsAny<ShowUpdateDto>())).Returns(Task.CompletedTask);
+			var dto = _fixture.Create<UpdateShowDto>();
+			_showServiceMock.Setup(s => s.UpdateShowAsync(1, It.IsAny<UpdateShowDto>())).Returns(Task.CompletedTask);
 
 			var result = await _controller.UpdateShow(1, dto);
 
@@ -123,8 +123,8 @@ namespace ShowTracker.Api.Tests.Controllers
 		[Fact]
 		public async Task UpdateShow_NotFound_ReturnsNotFound()
 		{
-			var dto = _fixture.Create<ShowUpdateDto>();
-			_showServiceMock.Setup(s => s.UpdateShowAsync(1, It.IsAny<ShowUpdateDto>())).Throws<KeyNotFoundException>();
+			var dto = _fixture.Create<UpdateShowDto>();
+			_showServiceMock.Setup(s => s.UpdateShowAsync(1, It.IsAny<UpdateShowDto>())).Throws<KeyNotFoundException>();
 
 			var result = await _controller.UpdateShow(1, dto);
 
@@ -137,7 +137,7 @@ namespace ShowTracker.Api.Tests.Controllers
 		[InlineData("", "")]
 		public async Task UpdateShow_InvalidDto_ReturnsBadRequest(string title, string description)
 		{
-			var dto = new ShowUpdateDto
+			var dto = new UpdateShowDto
 			{
 				Title = title,
 				Description = description,

@@ -18,11 +18,18 @@ public class ShowsController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<ShowSummaryDto>>> GetAllShows()
+    public async Task<ActionResult<IEnumerable<ShowSummaryDto>>> GetAllShows(
+        [FromQuery] string? genre,
+        [FromQuery] string? type,
+        [FromQuery] string? sortBy,
+        [FromQuery] bool descending = false,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 10)
     {
-        var shows = await _showService.GetAllShowsAsync();
+        var shows = await _showService.GetAllShowsAsync(genre, type, sortBy, descending, page, pageSize);
         return Ok(shows);
     }
+
 
     [HttpGet("{id}", Name = "GetShow")]
     public async Task<ActionResult<ShowDetailsDto>> GetShow(int id)
@@ -32,7 +39,7 @@ public class ShowsController : ControllerBase
     }
 
     [HttpPost]
-    public async Task<ActionResult<ShowSummaryDto>> CreateShow([FromBody] ShowCreateDto dto)
+    public async Task<ActionResult<ShowSummaryDto>> CreateShow([FromBody] CreateShowDto dto)
     {
         if (string.IsNullOrWhiteSpace(dto.Title))
         {
@@ -48,7 +55,7 @@ public class ShowsController : ControllerBase
     }
 
     [HttpPut("{id}")]
-    public async Task<IActionResult> UpdateShow(int id, [FromBody] ShowUpdateDto dto)
+    public async Task<IActionResult> UpdateShow(int id, [FromBody] UpdateShowDto dto)
     {
         if (string.IsNullOrWhiteSpace(dto.Title))
         {
@@ -69,6 +76,16 @@ public class ShowsController : ControllerBase
             return NotFound();
         }
     }
+
+    [HttpPost("bulk")]
+    public async Task<ActionResult<List<ShowSummaryDto>>> CreateShowsBulk([FromBody] List<CreateShowDto> dtos)
+    {
+        if (dtos == null || !dtos.Any()) { return BadRequest("No shows provided for creation."); }
+
+        var createdShows = await _showService.CreateShowsAsync(dtos);
+        return Ok(createdShows);
+    }
+
 
     [HttpDelete("{id}")]
     public async Task<IActionResult> DeleteShow(int id)

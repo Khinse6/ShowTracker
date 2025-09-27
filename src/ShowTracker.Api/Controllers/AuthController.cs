@@ -44,14 +44,18 @@ public class AuthController : ControllerBase
     [HttpPost("refresh")]
     public async Task<IActionResult> Refresh([FromBody] RefreshTokenDto dto)
     {
-        var tokens = await _authService.RefreshTokenAsync(dto.Token);
-        if (tokens == null) { return Unauthorized("Invalid or expired refresh token."); }
+        var result = await _authService.RefreshTokenAsync(dto.Token);
 
-        return Ok(new
+        return result.status switch
         {
-            AccessToken = tokens.Value.accessToken,
-            RefreshToken = tokens.Value.refreshToken
-        });
+            RefreshResultStatus.Success => Ok(new
+            {
+                AccessToken = result.accessToken!,
+                RefreshToken = result.refreshToken!
+            }),
+            RefreshResultStatus.Reused => Unauthorized("Refresh token reuse detected. All sessions have been revoked. Please log in again."),
+            _ => Unauthorized("Invalid or expired refresh token.")
+        };
     }
 
     [HttpPost("logout")]

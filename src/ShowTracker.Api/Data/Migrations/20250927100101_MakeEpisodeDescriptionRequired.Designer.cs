@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using ShowTracker.Api.Data;
 
@@ -10,9 +11,11 @@ using ShowTracker.Api.Data;
 namespace ShowTracker.Api.Data.Migrations
 {
     [DbContext(typeof(ShowStoreContext))]
-    partial class ShowStoreContextModelSnapshot : ModelSnapshot
+    [Migration("20250927100101_MakeEpisodeDescriptionRequired")]
+    partial class MakeEpisodeDescriptionRequired
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "9.0.9");
@@ -389,16 +392,11 @@ namespace ShowTracker.Api.Data.Migrations
                     b.Property<DateOnly>("ReleaseDate")
                         .HasColumnType("TEXT");
 
-                    b.Property<int>("ShowTypeId")
-                        .HasColumnType("INTEGER");
-
                     b.Property<string>("Title")
                         .IsRequired()
                         .HasColumnType("TEXT");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("ShowTypeId");
 
                     b.ToTable("Shows");
 
@@ -408,7 +406,6 @@ namespace ShowTracker.Api.Data.Migrations
                             Id = 1,
                             Description = "A group of kids uncover supernatural mysteries in their small town.",
                             ReleaseDate = new DateOnly(2016, 7, 15),
-                            ShowTypeId = 1,
                             Title = "Stranger Things"
                         },
                         new
@@ -416,7 +413,6 @@ namespace ShowTracker.Api.Data.Migrations
                             Id = 2,
                             Description = "Chronicles the life of Queen Elizabeth II from the 1940s onward.",
                             ReleaseDate = new DateOnly(2016, 11, 4),
-                            ShowTypeId = 1,
                             Title = "The Crown"
                         },
                         new
@@ -424,30 +420,7 @@ namespace ShowTracker.Api.Data.Migrations
                             Id = 3,
                             Description = "Wealthy families navigate romance and scandal in Regency-era London.",
                             ReleaseDate = new DateOnly(2020, 12, 25),
-                            ShowTypeId = 1,
                             Title = "Bridgerton"
-                        });
-                });
-
-            modelBuilder.Entity("ShowTracker.Api.Entities.ShowType", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("ShowTypes");
-
-                    b.HasData(
-                        new
-                        {
-                            Id = 1,
-                            Name = "TV Series"
                         });
                 });
 
@@ -635,17 +608,6 @@ namespace ShowTracker.Api.Data.Migrations
                     b.Navigation("Show");
                 });
 
-            modelBuilder.Entity("ShowTracker.Api.Entities.Show", b =>
-                {
-                    b.HasOne("ShowTracker.Api.Entities.ShowType", "ShowType")
-                        .WithMany("Shows")
-                        .HasForeignKey("ShowTypeId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("ShowType");
-                });
-
             modelBuilder.Entity("UserFavorites", b =>
                 {
                     b.HasOne("ShowTracker.Api.Entities.Show", null)
@@ -669,11 +631,6 @@ namespace ShowTracker.Api.Data.Migrations
             modelBuilder.Entity("ShowTracker.Api.Entities.Show", b =>
                 {
                     b.Navigation("Seasons");
-                });
-
-            modelBuilder.Entity("ShowTracker.Api.Entities.ShowType", b =>
-                {
-                    b.Navigation("Shows");
                 });
 
             modelBuilder.Entity("ShowTracker.Api.Entities.User", b =>

@@ -10,11 +10,13 @@ using System.Text;
 
 namespace ShowTracker.Api.Services;
 
+public enum RefreshResultStatus { Success, Invalid, Reused }
+
 public interface IAuthService
 {
     Task<User?> RegisterAsync(string email, string password, string displayName, bool acceptedTerms);
     Task<(string accessToken, string refreshToken)?> LoginAsync(string email, string password);
-    Task<(string accessToken, string refreshToken)?> RefreshTokenAsync(string token);
+    Task<(RefreshResultStatus status, string? accessToken, string? refreshToken)> RefreshTokenAsync(string token);
     Task LogoutAsync(string refreshToken);
 }
 
@@ -70,17 +72,35 @@ public class AuthService : IAuthService
         return (accessToken, refreshToken.Token);
     }
 
-    public async Task<(string accessToken, string refreshToken)?> RefreshTokenAsync(string token)
+    public async Task<(RefreshResultStatus status, string? accessToken, string? refreshToken)> RefreshTokenAsync(string token)
     {
-        var refreshToken = _context.Set<RefreshToken>()
-                                   .SingleOrDefault(rt => rt.Token == token);
-
-        if (refreshToken == null || !refreshToken.IsActive) { return null; }
+        var refreshToken = _context.Set<RefreshToken>().SingleOrDefault(rt => rt.Token == token);
+        if (refreshToken == null)
+        {
+            return (RefreshResultStatus.Invalid, null, null);
+        }
 
         var user = await _userManager.FindByIdAsync(refreshToken.UserId);
-        if (user == null) { return null; }
+        if (user == null)
+        {
+            return (RefreshResultStatus.Invalid, null, null);
+        }
 
-        // Revoke old refresh token and track rotation
+        // Compromised reuse detection
+        if (refreshToken.Revoked != null && refreshToken.ReplacedByToken != null)
+        {
+            RevokeAllUserRefreshTokens(user.Id);
+            await _context.SaveChangesAsync();
+            return (RefreshResultStatus.Reused, null, null);
+        }
+
+        // Expired or revoked
+        if (!refreshToken.IsActive)
+        {
+            return (RefreshResultStatus.Invalid, null, null);
+        }
+
+        // Normal refresh flow
         refreshToken.Revoked = DateTime.UtcNow;
 
         var newRefreshToken = GenerateRefreshToken();
@@ -88,21 +108,30 @@ public class AuthService : IAuthService
         refreshToken.ReplacedByToken = newRefreshToken.Token;
 
         user.RefreshTokens.Add(newRefreshToken);
-        await _context.SaveChangesAsync(); // single save for both tokens
+        await _context.SaveChangesAsync();
 
         var newAccessToken = GenerateAccessToken(user);
-        return (newAccessToken, newRefreshToken.Token);
+        return (RefreshResultStatus.Success, newAccessToken, newRefreshToken.Token);
     }
 
     public async Task LogoutAsync(string refreshToken)
     {
-        var token = _context.Set<RefreshToken>()
-                            .SingleOrDefault(rt => rt.Token == refreshToken);
+        var token = _context.Set<RefreshToken>().SingleOrDefault(rt => rt.Token == refreshToken);
 
         if (token != null)
         {
             token.Revoked = DateTime.UtcNow;
             await _context.SaveChangesAsync();
+        }
+    }
+
+    //  Revoke all tokens for a user (on reuse detection)
+    private void RevokeAllUserRefreshTokens(string userId)
+    {
+        var tokens = _context.Set<RefreshToken>().Where(rt => rt.UserId == userId && rt.IsActive);
+        foreach (var t in tokens)
+        {
+            t.Revoked = DateTime.UtcNow;
         }
     }
 

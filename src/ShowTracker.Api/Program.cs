@@ -6,7 +6,7 @@ using Microsoft.OpenApi.Models;
 using ShowTracker.Api.Data;
 using ShowTracker.Api.Entities;
 using ShowTracker.Api.Services;
-using ShowTracker.Api.Swagger; // <-- include the filter
+using ShowTracker.Api.Swagger;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -56,9 +56,14 @@ builder.Services.AddControllers();
 // -----------------------
 // Services
 // -----------------------
-builder.Services.AddScoped<IShowService, ShowService>();
-builder.Services.AddScoped<IShowGenresService, ShowGenresService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IShowService, ShowService>();
+builder.Services.AddScoped<IGenreService, GenreService>();
+builder.Services.AddScoped<IFavoritesService, FavoritesService>();
+builder.Services.AddScoped<IShowTypeService, ShowTypeService>();
+builder.Services.AddScoped<IShowGenresService, ShowGenresService>();
+builder.Services.AddScoped<IShowSeasonsService, ShowSeasonsService>();
+builder.Services.AddScoped<IShowEpisodesService, ShowEpisodesService>();
 
 // -----------------------
 // Swagger / OpenAPI
