@@ -13,6 +13,7 @@ public record class ShowSummaryDto
 public record class ShowDetailsDto : ShowSummaryDto
 {
     public List<SeasonDto> Seasons { get; set; } = new();
+    public List<ActorSummaryDto> Actors { get; set; } = new();
 }
 
 public record CreateShowDto

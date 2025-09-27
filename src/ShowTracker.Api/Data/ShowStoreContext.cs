@@ -12,6 +12,7 @@ public class ShowStoreContext : IdentityDbContext<User>
     public DbSet<Season> Seasons => Set<Season>();
     public DbSet<Episode> Episodes => Set<Episode>();
     public DbSet<Genre> Genres => Set<Genre>();
+    public DbSet<Actor> Actors => Set<Actor>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<ShowType> ShowTypes { get; set; } = null!;
 
@@ -35,6 +36,8 @@ public class ShowStoreContext : IdentityDbContext<User>
             .WithMany(u => u.RefreshTokens)
             .HasForeignKey(rt => rt.UserId)
             .OnDelete(DeleteBehavior.Cascade);
+
+
 
         // Seed ShowTypes
         modelBuilder.Entity<ShowType>().HasData(
@@ -111,6 +114,33 @@ public class ShowStoreContext : IdentityDbContext<User>
             new { ShowsId = 2, GenresId = 5 },
             new { ShowsId = 3, GenresId = 1 },
             new { ShowsId = 3, GenresId = 4 }
+        );
+
+        modelBuilder.Entity<Show>()
+        .HasMany(s => s.Actors)
+        .WithMany(a => a.Shows)
+        .UsingEntity<Dictionary<string, object>>(
+            "ShowActors",
+            j => j.HasOne<Actor>().WithMany().HasForeignKey("ActorId").OnDelete(DeleteBehavior.Cascade),
+            j => j.HasOne<Show>().WithMany().HasForeignKey("ShowId").OnDelete(DeleteBehavior.Cascade)
+        );
+
+        // Seed some Actors
+        modelBuilder.Entity<Actor>().HasData(
+            new Actor { Id = 1, Name = "Winona Ryder" },
+            new Actor { Id = 2, Name = "David Harbour" },
+            new Actor { Id = 3, Name = "Olivia Colman" },
+            new Actor { Id = 4, Name = "Phoebe Dynevor" },
+            new Actor { Id = 5, Name = "Regé-Jean Page" }
+        );
+
+        // Seed ShowActors
+        modelBuilder.Entity("ShowActors").HasData(
+            new { ShowId = 1, ActorId = 1 },
+            new { ShowId = 1, ActorId = 2 },
+            new { ShowId = 2, ActorId = 3 },
+            new { ShowId = 3, ActorId = 4 },
+            new { ShowId = 3, ActorId = 5 }
         );
     }
 

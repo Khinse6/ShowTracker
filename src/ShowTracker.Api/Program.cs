@@ -59,6 +59,7 @@ builder.Services.AddControllers();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IShowService, ShowService>();
 builder.Services.AddScoped<IGenreService, GenreService>();
+builder.Services.AddScoped<IActorService, ActorService>();
 builder.Services.AddScoped<IFavoritesService, FavoritesService>();
 builder.Services.AddScoped<IShowTypeService, ShowTypeService>();
 builder.Services.AddScoped<IShowGenresService, ShowGenresService>();

@@ -41,9 +41,9 @@ namespace ShowTracker.Api.Tests.Controllers
 		public async Task GetAllShows_ReturnsOkWithShows()
 		{
 			var shows = _fixture.CreateMany<ShowSummaryDto>(3).ToList();
-			_showServiceMock.Setup(s => s.GetAllShowsAsync()).ReturnsAsync(shows);
+			_showServiceMock.Setup(s => s.GetAllShowsAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<bool>(), It.IsAny<int>(), It.IsAny<int>())).ReturnsAsync(shows);
 
-			var result = await _controller.GetAllShows();
+			var result = await _controller.GetAllShows(null, null, null, false, 1, 10);
 
 			var okResult = Assert.IsType<OkObjectResult>(result.Result);
 			var returnValue = Assert.IsAssignableFrom<List<ShowSummaryDto>>(okResult.Value!);

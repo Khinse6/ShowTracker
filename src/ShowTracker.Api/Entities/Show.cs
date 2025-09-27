@@ -11,4 +11,5 @@ public class Show
     public List<Season> Seasons { get; set; } = new();
     public List<Genre> Genres { get; set; } = new();
     public List<User> FavoritedByUsers { get; set; } = new();
+    public List<Actor> Actors { get; set; } = new();
 }

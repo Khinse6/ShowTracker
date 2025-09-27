@@ -67,6 +67,7 @@ public class ShowService : IShowService
                 .Include(s => s.ShowType)
                 .Include(s => s.Seasons)
                         .ThenInclude(se => se.Episodes)
+                .Include(s => s.Actors)
                 .FirstOrDefaultAsync(s => s.Id == id);
 
         return show?.ToShowDetailsDto();

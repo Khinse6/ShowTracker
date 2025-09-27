@@ -7,7 +7,11 @@ public record class GenreDto
     public required string Name { get; set; }
 }
 
-public record CreateGenreDto
+public record class CreateGenreDto
+{
+    public required string Name { get; set; }
+}
+public record class UpdateGenreDto
 {
     public required string Name { get; set; }
 }

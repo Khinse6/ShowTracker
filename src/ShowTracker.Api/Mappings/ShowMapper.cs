@@ -51,9 +51,10 @@ public static class ShowMapper
             Title = show.Title,
             Description = show.Description,
             ReleaseDate = show.ReleaseDate,
-            Type = show.ShowType.Name,
+            Type = show.ShowType?.Name ?? "Unknown",
             Genres = show.Genres?.Select(g => g.Name).ToList() ?? new List<string>(),
-            Seasons = show.Seasons?.Select(se => se.ToDto()).ToList() ?? new List<SeasonDto>()
+            Seasons = show.Seasons?.Select(se => se.ToDto()).ToList() ?? new List<SeasonDto>(),
+            Actors = show.Actors?.Select(a => a.ToSummaryDto()).ToList() ?? new List<ActorSummaryDto>()
         };
     }
 }
