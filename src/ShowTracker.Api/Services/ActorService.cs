@@ -2,18 +2,9 @@ using Microsoft.EntityFrameworkCore;
 using ShowTracker.Api.Data;
 using ShowTracker.Api.Dtos;
 using ShowTracker.Api.Entities;
+using ShowTracker.Api.Interfaces;
 using ShowTracker.Api.Mappings;
-
 namespace ShowTracker.Api.Services;
-
-public interface IActorService
-{
-    Task<List<ActorSummaryDto>> GetAllActorsAsync(QueryParameters<ActorSortBy> parameters);
-    Task<ActorDetailsDto> GetActorByIdAsync(int id);
-    Task<ActorSummaryDto> CreateActorAsync(CreateActorDto dto);
-    Task UpdateActorAsync(int id, UpdateActorDto dto);
-    Task DeleteActorAsync(int id);
-}
 
 public class ActorService : IActorService
 {

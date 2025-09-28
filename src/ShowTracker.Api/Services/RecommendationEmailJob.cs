@@ -1,3 +1,5 @@
+using ShowTracker.Api.Interfaces;
+
 namespace ShowTracker.Api.Services;
 
 public class RecommendationEmailJob : IHostedService, IDisposable

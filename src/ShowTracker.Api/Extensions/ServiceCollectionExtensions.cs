@@ -1,9 +1,11 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using ShowTracker.Api.Data;
 using ShowTracker.Api.Entities;
+using ShowTracker.Api.Interfaces;
 using ShowTracker.Api.Services;
 using ShowTracker.Api.Settings;
 using System.Text;
@@ -22,7 +24,8 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddIdentityAndAuthentication(this IServiceCollection services, IConfiguration configuration)
     {
         // Bind the JWT settings from appsettings.json to the JwtSettings class
-        services.Configure<JwtSettings>(configuration.GetSection("Jwt"));
+        var jwtSettingsSection = configuration.GetSection("Jwt");
+        services.Configure<JwtSettings>(jwtSettingsSection);
 
         services.AddIdentity<User, IdentityRole>()
             .AddEntityFrameworkStores<ShowStoreContext>()
@@ -33,18 +36,21 @@ public static class ServiceCollectionExtensions
             options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
             options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
         })
-        .AddJwtBearer(options =>
+        .AddJwtBearer(o =>
         {
-            options.TokenValidationParameters = new TokenValidationParameters
+            // Use the IOptions pattern to get strongly-typed settings
+            var serviceProvider = services.BuildServiceProvider();
+            var jwtSettings = serviceProvider.GetRequiredService<IOptions<JwtSettings>>().Value;
+
+            o.TokenValidationParameters = new TokenValidationParameters
             {
                 ValidateIssuer = true,
                 ValidateAudience = true,
                 ValidateLifetime = true,
                 ValidateIssuerSigningKey = true,
-                ValidIssuer = configuration["Jwt:Issuer"],
-                ValidAudience = configuration["Jwt:Audience"],
-                IssuerSigningKey = new SymmetricSecurityKey(
-                    Encoding.UTF8.GetBytes(configuration["Jwt:Key"]!)),
+                ValidIssuer = jwtSettings.Issuer,
+                ValidAudience = jwtSettings.Audience,
+                IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings.Key)),
                 ClockSkew = TimeSpan.Zero
             };
         });
@@ -54,19 +60,17 @@ public static class ServiceCollectionExtensions
 
     public static IServiceCollection AddApplicationServices(this IServiceCollection services)
     {
-        services.AddScoped<IAuthService, AuthService>();
-        services.AddScoped<IUserService, UserService>();
-        services.AddScoped<IShowService, ShowService>();
-        services.AddScoped<IGenreService, GenreService>();
-        services.AddScoped<IActorService, ActorService>();
-        services.AddScoped<IFavoritesService, FavoritesService>();
-        services.AddScoped<IShowTypeService, ShowTypeService>();
-        services.AddScoped<IShowGenresService, ShowGenresService>();
-        services.AddScoped<IShowSeasonsService, ShowSeasonsService>();
-        services.AddScoped<IRecommendationService, RecommendationService>();
+        // Use Scrutor to scan the assembly and register services by convention
+        services.Scan(scan => scan
+            // Scan from the assembly where IShowService is defined (your current project)
+            .FromAssemblyOf<IShowService>()
+                // Register classes that implement an interface with a matching name (e.g., ShowService -> IShowService)
+                .AddClasses(classes => classes.InNamespaces("ShowTracker.Api.Services"))
+                    .AsMatchingInterface()
+                    .WithScopedLifetime());
+
+        // Manually register any services that don't follow the convention
         services.AddScoped<IEmailService, ConsoleEmailService>();
-        services.AddScoped<IShowEpisodesService, ShowEpisodesService>();
-        services.AddScoped<IRecommendationJobService, RecommendationJobService>();
 
         // Background Services
         services.AddHostedService<RecommendationEmailJob>();

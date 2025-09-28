@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using ShowTracker.Api.Dtos;
+using ShowTracker.Api.Interfaces;
 using ShowTracker.Api.Services;
 
 namespace ShowTracker.Api.Controllers;

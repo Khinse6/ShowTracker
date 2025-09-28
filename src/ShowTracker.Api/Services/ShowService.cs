@@ -2,18 +2,9 @@ using Microsoft.EntityFrameworkCore;
 using ShowTracker.Api.Data;
 using ShowTracker.Api.Dtos;
 using ShowTracker.Api.Mappings;
+using ShowTracker.Api.Interfaces;
 
 namespace ShowTracker.Api.Services;
-
-public interface IShowService
-{
-    Task<List<ShowSummaryDto>> GetAllShowsAsync(string? genre, string? type, QueryParameters<ShowSortBy> parameters);
-    Task<ShowDetailsDto?> GetShowByIdAsync(int id);
-    Task<ShowSummaryDto> CreateShowAsync(CreateShowDto dto);
-    Task<List<ShowSummaryDto>> CreateShowsAsync(List<CreateShowDto> dtos);
-    Task UpdateShowAsync(int id, UpdateShowDto dto);
-    Task DeleteShowAsync(int id);
-}
 
 public class ShowService : IShowService
 {
@@ -32,13 +23,14 @@ public class ShowService : IShowService
         var showsQuery = _dbContext.Shows
             .Include(s => s.Genres)
             .Include(s => s.ShowType)
+            .AsNoTracking()
             .AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(genre))
-        { showsQuery = showsQuery.Where(s => s.Genres.Any(g => g.Name == genre)); }
+        { showsQuery = showsQuery.Where(s => s.Genres.Any(g => g.Name.ToLower() == genre.ToLower())); }
 
         if (!string.IsNullOrWhiteSpace(type))
-        { showsQuery = showsQuery.Where(s => s.ShowType.Name == type); }
+        { showsQuery = showsQuery.Where(s => s.ShowType.Name.ToLower() == type.ToLower()); }
 
         showsQuery = (parameters.SortBy, parameters.SortOrder) switch
         {
@@ -63,6 +55,7 @@ public class ShowService : IShowService
                 .Include(s => s.Seasons)
                         .ThenInclude(se => se.Episodes)
                 .Include(s => s.Actors)
+                .AsNoTracking() // Use AsNoTracking for read-only queries
                 .FirstOrDefaultAsync(s => s.Id == id);
 
         return show?.ToShowDetailsDto();
@@ -100,11 +93,7 @@ public class ShowService : IShowService
 
     public async Task UpdateShowAsync(int id, UpdateShowDto updateShowDto)
     {
-        var existing = await _dbContext.Shows
-                .Include(s => s.Genres)
-                .Include(s => s.Seasons)
-                .FirstOrDefaultAsync(s => s.Id == id);
-
+        var existing = await _dbContext.Shows.FindAsync(id);
         if (existing is null)
         {
             throw new KeyNotFoundException("Show not found");

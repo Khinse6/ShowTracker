@@ -2,21 +2,10 @@ using Microsoft.EntityFrameworkCore;
 using ShowTracker.Api.Data;
 using ShowTracker.Api.Dtos;
 using ShowTracker.Api.Entities;
+using ShowTracker.Api.Interfaces;
 using ShowTracker.Api.Mappings;
 
 namespace ShowTracker.Api.Services;
-
-using ShowTracker.Api.Dtos;
-
-public interface IShowEpisodesService
-{
-    Task<List<EpisodeDto>> GetEpisodesForSeasonAsync(int seasonId, QueryParameters<EpisodeSortBy> parameters);
-    Task<EpisodeDto?> GetEpisodeAsync(int seasonId, int episodeId);
-    Task<EpisodeDto> CreateEpisodeAsync(int seasonId, CreateEpisodeDto dto);
-    Task<List<EpisodeDto>> CreateEpisodesAsync(int seasonId, List<CreateEpisodeDto> dtos);
-    Task UpdateEpisodeAsync(int seasonId, int episodeId, UpdateEpisodeDto dto);
-    Task DeleteEpisodeAsync(int seasonId, int episodeId);
-}
 
 public class ShowEpisodesService : IShowEpisodesService
 {

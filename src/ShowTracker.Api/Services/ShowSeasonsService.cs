@@ -2,20 +2,10 @@ using Microsoft.EntityFrameworkCore;
 using ShowTracker.Api.Data;
 using ShowTracker.Api.Dtos;
 using ShowTracker.Api.Entities;
+using ShowTracker.Api.Interfaces;
 using ShowTracker.Api.Mappings;
 
 namespace ShowTracker.Api.Services;
-
-public interface IShowSeasonsService
-{
-    Task<List<SeasonDto>> GetSeasonsForShowAsync(int showId, QueryParameters<SeasonSortBy> parameters);
-    Task<SeasonDto?> GetSeasonAsync(int showId, int seasonId);
-    Task<SeasonDto> CreateSeasonAsync(CreateSeasonDto dto);
-    Task<List<SeasonDto>> CreateSeasonsAsync(int showId, List<CreateSeasonDto> dtos);
-    Task UpdateSeasonAsync(int showId, int seasonId, UpdateSeasonDto dto);
-    Task DeleteSeasonAsync(int showId, int seasonId);
-}
-
 
 public class ShowSeasonsService : IShowSeasonsService
 {

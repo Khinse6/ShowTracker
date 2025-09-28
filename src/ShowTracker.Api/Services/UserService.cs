@@ -3,15 +3,10 @@ using Microsoft.EntityFrameworkCore;
 using ShowTracker.Api.Data;
 using ShowTracker.Api.Dtos;
 using ShowTracker.Api.Entities;
+using ShowTracker.Api.Interfaces;
 using ShowTracker.Api.Mappings;
 
 namespace ShowTracker.Api.Services;
-
-public interface IUserService
-{
-    Task<UserPersonalDataDto?> GetUserDataAsync(string userId);
-    Task<bool> DeleteUserAsync(string userId);
-}
 
 public class UserService : IUserService
 {

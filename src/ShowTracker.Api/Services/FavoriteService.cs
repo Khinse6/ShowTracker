@@ -2,15 +2,9 @@ using Microsoft.EntityFrameworkCore;
 using ShowTracker.Api.Data;
 using ShowTracker.Api.Dtos;
 using ShowTracker.Api.Mappings;
+using ShowTracker.Api.Interfaces;
 
 namespace ShowTracker.Api.Services;
-
-public interface IFavoritesService
-{
-    Task<List<ShowSummaryDto>> GetFavoritesAsync(string userId, QueryParameters<ShowSortBy> parameters);
-    Task AddFavoriteAsync(string userId, int showId);
-    Task RemoveFavoriteAsync(string userId, int showId);
-}
 
 public class FavoritesService : IFavoritesService
 {

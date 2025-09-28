@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using ShowTracker.Api.Interfaces;
 using ShowTracker.Api.Services;
 
 namespace ShowTracker.Api.Controllers;

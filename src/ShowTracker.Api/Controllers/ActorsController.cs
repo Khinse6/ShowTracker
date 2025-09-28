@@ -1,8 +1,8 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using ShowTracker.Api.Dtos;
-using ShowTracker.Api.Helpers;
-using ShowTracker.Api.Services;
+using ShowTracker.Api.Interfaces;
+
 
 namespace ShowTracker.Api.Controllers;
 

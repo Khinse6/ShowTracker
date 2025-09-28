@@ -1,9 +1,6 @@
-namespace ShowTracker.Api.Services;
+using ShowTracker.Api.Interfaces;
 
-public interface IEmailService
-{
-    Task SendEmailAsync(string toEmail, string toName, string subject, string body);
-}
+namespace ShowTracker.Api.Services;
 
 public class ConsoleEmailService : IEmailService
 {

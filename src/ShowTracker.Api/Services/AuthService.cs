@@ -4,6 +4,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using ShowTracker.Api.Data;
 using ShowTracker.Api.Entities;
+using ShowTracker.Api.Interfaces;
 using ShowTracker.Api.Settings;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
@@ -12,15 +13,6 @@ using System.Security.Cryptography;
 namespace ShowTracker.Api.Services;
 
 public enum RefreshResultStatus { Success, Invalid, Reused }
-
-public interface IAuthService
-{
-    Task<User?> RegisterAsync(string email, string password, string displayName, bool acceptedTerms);
-    Task<(string accessToken, string refreshToken)?> LoginAsync(string email, string password);
-    Task<(RefreshResultStatus status, string? accessToken, string? refreshToken)> RefreshTokenAsync(string token);
-    Task LogoutAsync(string refreshToken);
-    string GenerateAccessToken(User user);
-}
 
 public class AuthService : IAuthService
 {

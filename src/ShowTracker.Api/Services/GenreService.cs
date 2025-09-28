@@ -2,19 +2,10 @@ using Microsoft.EntityFrameworkCore;
 using ShowTracker.Api.Data;
 using ShowTracker.Api.Dtos;
 using ShowTracker.Api.Entities;
+using ShowTracker.Api.Interfaces;
 using ShowTracker.Api.Mappings;
 
 namespace ShowTracker.Api.Services;
-
-public interface IGenreService
-{
-    Task<List<GenreDto>> GetAllGenresAsync(QueryParameters<GenreSortBy> parameters);
-    Task<GenreDto?> GetGenreByIdAsync(int id);
-    Task<GenreDto> CreateGenreAsync(CreateGenreDto dto);
-    Task<List<GenreDto>> CreateGenresAsync(List<CreateGenreDto> dtos);
-    Task UpdateGenreAsync(int id, UpdateGenreDto dto);
-    Task DeleteGenreAsync(int id);
-}
 
 public class GenreService : IGenreService
 {

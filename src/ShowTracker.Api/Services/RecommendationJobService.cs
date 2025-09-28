@@ -2,13 +2,9 @@ using Microsoft.EntityFrameworkCore;
 using ShowTracker.Api.Data;
 using ShowTracker.Api.Dtos;
 using System.Text;
+using ShowTracker.Api.Interfaces;
 
 namespace ShowTracker.Api.Services;
-
-public interface IRecommendationJobService
-{
-    Task TriggerManually(CancellationToken cancellationToken);
-}
 
 public class RecommendationJobService : IRecommendationJobService
 {

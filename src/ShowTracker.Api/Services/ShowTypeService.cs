@@ -2,18 +2,9 @@ using Microsoft.EntityFrameworkCore;
 using ShowTracker.Api.Data;
 using ShowTracker.Api.Dtos;
 using ShowTracker.Api.Entities;
+using ShowTracker.Api.Interfaces;
 
 namespace ShowTracker.Api.Services;
-
-public interface IShowTypeService
-{
-    Task<List<ShowTypeDto>> GetAllAsync(QueryParameters<ShowTypeSortBy> parameters);
-    Task<ShowTypeDto?> GetByIdAsync(int id);
-    Task<ShowTypeDto> CreateAsync(CreateShowTypeDto dto);
-    Task<List<ShowTypeDto>> BulkCreateAsync(List<CreateShowTypeDto> dtos);
-    Task UpdateAsync(int id, UpdateShowTypeDto dto);
-    Task DeleteAsync(int id);
-}
 
 public class ShowTypeService : IShowTypeService
 {

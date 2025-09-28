@@ -2,14 +2,10 @@ using Microsoft.EntityFrameworkCore;
 using ShowTracker.Api.Data;
 using ShowTracker.Api.Dtos;
 using ShowTracker.Api.Mappings;
+using ShowTracker.Api.Interfaces;
 
 
 namespace ShowTracker.Api.Services;
-
-public interface IRecommendationService
-{
-    Task<List<ShowSummaryDto>> GetRecommendationsForUserAsync(string userId, QueryParameters<ShowSortBy> parameters);
-}
 
 public class RecommendationService : IRecommendationService
 {
