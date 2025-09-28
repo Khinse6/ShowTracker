@@ -39,6 +39,7 @@ public class ShowsController : ControllerBase
     }
 
     [HttpPost]
+    [Authorize(Roles = "admin")]
     public async Task<ActionResult<ShowSummaryDto>> CreateShow([FromBody] CreateShowDto dto)
     {
         if (string.IsNullOrWhiteSpace(dto.Title))
@@ -55,6 +56,7 @@ public class ShowsController : ControllerBase
     }
 
     [HttpPut("{id}")]
+    [Authorize(Roles = "admin")]
     public async Task<IActionResult> UpdateShow(int id, [FromBody] UpdateShowDto dto)
     {
         if (string.IsNullOrWhiteSpace(dto.Title))
@@ -78,6 +80,7 @@ public class ShowsController : ControllerBase
     }
 
     [HttpPost("bulk")]
+    [Authorize(Roles = "admin")]
     public async Task<ActionResult<List<ShowSummaryDto>>> CreateShowsBulk([FromBody] List<CreateShowDto> dtos)
     {
         if (dtos == null || !dtos.Any()) { return BadRequest("No shows provided for creation."); }
@@ -88,6 +91,7 @@ public class ShowsController : ControllerBase
 
 
     [HttpDelete("{id}")]
+    [Authorize(Roles = "admin")]
     public async Task<IActionResult> DeleteShow(int id)
     {
         try

@@ -10,7 +10,7 @@ using ShowTracker.Api.Dtos;
 
 public interface IShowEpisodesService
 {
-    Task<List<EpisodeDto>> GetEpisodesForSeasonAsync(int seasonId);
+    Task<List<EpisodeDto>> GetEpisodesForSeasonAsync(int seasonId, string? sortBy, bool sortAsc, int page, int pageSize);
     Task<EpisodeDto?> GetEpisodeAsync(int seasonId, int episodeId);
     Task<EpisodeDto> CreateEpisodeAsync(int seasonId, CreateEpisodeDto dto);
     Task<List<EpisodeDto>> CreateEpisodesAsync(int seasonId, List<CreateEpisodeDto> dtos);
@@ -27,15 +27,28 @@ public class ShowEpisodesService : IShowEpisodesService
         _context = context;
     }
 
-    public async Task<List<EpisodeDto>> GetEpisodesForSeasonAsync(int seasonId)
+    public async Task<List<EpisodeDto>> GetEpisodesForSeasonAsync(int seasonId, string? sortBy, bool sortAsc, int page, int pageSize)
     {
-        var season = await _context.Seasons
-            .Include(s => s.Episodes)
-            .FirstOrDefaultAsync(s => s.Id == seasonId);
+        var episodesQuery = _context.Episodes
+            .Where(e => e.SeasonId == seasonId)
+            .AsQueryable();
 
-        if (season == null) { throw new KeyNotFoundException("Season not found"); }
+        episodesQuery = (sortBy?.ToLower(), sortAsc) switch
+        {
+            ("episodenumber", true) => episodesQuery.OrderBy(e => e.EpisodeNumber),
+            ("episodenumber", false) => episodesQuery.OrderByDescending(e => e.EpisodeNumber),
+            ("releasedate", true) => episodesQuery.OrderBy(e => e.ReleaseDate),
+            ("releasedate", false) => episodesQuery.OrderByDescending(e => e.ReleaseDate),
+            _ => episodesQuery.OrderBy(e => e.EpisodeNumber)
+        };
 
-        return season.Episodes.Select(e => e.ToDto()).ToList();
+        var skip = (page - 1) * pageSize;
+        var episodes = await episodesQuery
+            .Skip(skip)
+            .Take(pageSize)
+            .ToListAsync();
+
+        return episodes.Select(e => e.ToDto()).ToList();
     }
 
     public async Task<EpisodeDto?> GetEpisodeAsync(int seasonId, int episodeId)

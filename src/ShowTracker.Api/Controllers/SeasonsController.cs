@@ -19,9 +19,14 @@ public class SeasonsController : ControllerBase
 
     // GET api/shows/{showId}/seasons
     [HttpGet]
-    public async Task<ActionResult<List<SeasonDto>>> GetSeasons(int showId)
+    public async Task<ActionResult<List<SeasonDto>>> GetSeasons(
+        int showId,
+        [FromQuery] string? sortBy,
+        [FromQuery] bool sortAsc = true,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 10)
     {
-        var seasons = await _seasonService.GetSeasonsForShowAsync(showId);
+        var seasons = await _seasonService.GetSeasonsForShowAsync(showId, sortBy, sortAsc, page, pageSize);
         return Ok(seasons);
     }
 
@@ -36,6 +41,7 @@ public class SeasonsController : ControllerBase
 
     // POST api/shows/{showId}/seasons
     [HttpPost]
+    [Authorize(Roles = "admin")]
     public async Task<ActionResult<SeasonDto>> CreateSeason(int showId, [FromBody] CreateSeasonDto dto)
     {
         dto.ShowId = showId; // ensure the season is linked to the correct show
@@ -44,6 +50,7 @@ public class SeasonsController : ControllerBase
     }
 
     [HttpPost("bulk")]
+    [Authorize(Roles = "admin")]
     public async Task<ActionResult<List<SeasonDto>>> CreateSeasonsBulk(int showId, [FromBody] List<CreateSeasonDto> dtos)
     {
         var seasons = await _seasonService.CreateSeasonsAsync(showId, dtos);
@@ -52,6 +59,7 @@ public class SeasonsController : ControllerBase
 
     // PUT api/shows/{showId}/seasons/{seasonId}
     [HttpPut("{seasonId}")]
+    [Authorize(Roles = "admin")]
     public async Task<IActionResult> UpdateSeason(int showId, int seasonId, [FromBody] UpdateSeasonDto dto)
     {
         try
@@ -67,6 +75,7 @@ public class SeasonsController : ControllerBase
 
     // DELETE api/shows/{showId}/seasons/{seasonId}
     [HttpDelete("{seasonId}")]
+    [Authorize(Roles = "admin")]
     public async Task<IActionResult> DeleteSeason(int showId, int seasonId)
     {
         try

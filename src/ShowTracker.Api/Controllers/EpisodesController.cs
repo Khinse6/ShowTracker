@@ -16,9 +16,14 @@ public class EpisodesController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<List<EpisodeDto>>> GetEpisodes(int seasonId)
+    public async Task<ActionResult<List<EpisodeDto>>> GetEpisodes(
+        int seasonId,
+        [FromQuery] string? sortBy,
+        [FromQuery] bool sortAsc = true,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 10)
     {
-        var episodes = await _episodeService.GetEpisodesForSeasonAsync(seasonId);
+        var episodes = await _episodeService.GetEpisodesForSeasonAsync(seasonId, sortBy, sortAsc, page, pageSize);
         return Ok(episodes);
     }
 
@@ -31,6 +36,7 @@ public class EpisodesController : ControllerBase
     }
 
     [HttpPost]
+    [Authorize(Roles = "admin")]
     public async Task<ActionResult<EpisodeDto>> CreateEpisode(int seasonId, [FromBody] CreateEpisodeDto dto)
     {
         var episode = await _episodeService.CreateEpisodeAsync(seasonId, dto);
@@ -38,6 +44,7 @@ public class EpisodesController : ControllerBase
     }
 
     [HttpPost("bulk")]
+    [Authorize(Roles = "admin")]
     public async Task<ActionResult<List<EpisodeDto>>> CreateEpisodesBulk(int seasonId, [FromBody] List<CreateEpisodeDto> dtos)
     {
         var episodes = await _episodeService.CreateEpisodesAsync(seasonId, dtos);
@@ -46,6 +53,7 @@ public class EpisodesController : ControllerBase
 
 
     [HttpPut("{episodeId}")]
+    [Authorize(Roles = "admin")]
     public async Task<IActionResult> UpdateEpisode(int seasonId, int episodeId, [FromBody] UpdateEpisodeDto dto)
     {
         try
@@ -60,6 +68,7 @@ public class EpisodesController : ControllerBase
     }
 
     [HttpDelete("{episodeId}")]
+    [Authorize(Roles = "admin")]
     public async Task<IActionResult> DeleteEpisode(int seasonId, int episodeId)
     {
         try

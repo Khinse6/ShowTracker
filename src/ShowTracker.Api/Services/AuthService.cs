@@ -50,7 +50,13 @@ public class AuthService : IAuthService
         };
 
         var result = await _userManager.CreateAsync(user, password);
-        return result.Succeeded ? user : null;
+        if (!result.Succeeded)
+        {
+            return null;
+        }
+
+        await _userManager.AddToRoleAsync(user, "User");
+        return user;
     }
 
     public async Task<(string accessToken, string refreshToken)?> LoginAsync(string email, string password)
@@ -137,12 +143,19 @@ public class AuthService : IAuthService
 
     private string GenerateAccessToken(User user)
     {
-        var claims = new[]
+        var userRoles = _userManager.GetRolesAsync(user).Result;
+
+        var claims = new List<Claim>
         {
             new Claim(JwtRegisteredClaimNames.Sub, user.Id),
             new Claim(JwtRegisteredClaimNames.Email, user.Email ?? ""),
             new Claim("displayName", user.DisplayName ?? "")
         };
+
+        foreach (var role in userRoles)
+        {
+            claims.Add(new Claim(ClaimTypes.Role, role));
+        }
 
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_config["Jwt:Key"]!));
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);

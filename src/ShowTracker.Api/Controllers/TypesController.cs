@@ -18,9 +18,13 @@ public class ShowTypesController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<IActionResult> GetAll()
+    public async Task<IActionResult> GetAll(
+        [FromQuery] string? sortBy,
+        [FromQuery] bool sortAsc = true,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 10)
     {
-        var types = await _service.GetAllAsync();
+        var types = await _service.GetAllAsync(sortBy, sortAsc, page, pageSize);
         return Ok(types);
     }
 
@@ -33,6 +37,7 @@ public class ShowTypesController : ControllerBase
     }
 
     [HttpPost]
+    [Authorize(Roles = "admin")]
     public async Task<IActionResult> Create([FromBody] CreateShowTypeDto dto)
     {
         var type = await _service.CreateAsync(dto);
@@ -40,6 +45,7 @@ public class ShowTypesController : ControllerBase
     }
 
     [HttpPost("bulk")]
+    [Authorize(Roles = "admin")]
     public async Task<IActionResult> BulkCreate([FromBody] List<CreateShowTypeDto> dtos)
     {
         var types = await _service.BulkCreateAsync(dtos);
@@ -47,6 +53,7 @@ public class ShowTypesController : ControllerBase
     }
 
     [HttpPut("{id}")]
+    [Authorize(Roles = "admin")]
     public async Task<IActionResult> Update(int id, [FromBody] UpdateShowTypeDto dto)
     {
         try
@@ -61,6 +68,7 @@ public class ShowTypesController : ControllerBase
     }
 
     [HttpDelete("{id}")]
+    [Authorize(Roles = "admin")]
     public async Task<IActionResult> Delete(int id)
     {
         try

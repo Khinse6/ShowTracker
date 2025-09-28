@@ -64,6 +64,8 @@ builder.Services.AddScoped<IFavoritesService, FavoritesService>();
 builder.Services.AddScoped<IShowTypeService, ShowTypeService>();
 builder.Services.AddScoped<IShowGenresService, ShowGenresService>();
 builder.Services.AddScoped<IShowSeasonsService, ShowSeasonsService>();
+builder.Services.AddScoped<IRecommendationService, RecommendationService>();
+builder.Services.AddScoped<IEmailService, ConsoleEmailService>();
 builder.Services.AddScoped<IShowEpisodesService, ShowEpisodesService>();
 
 // -----------------------
@@ -93,6 +95,11 @@ builder.Services.AddSwaggerGen(c =>
     // Use the operation filter to show locks only on [Authorize] endpoints
     c.OperationFilter<AuthorizeCheckOperationFilter>();
 });
+
+// -----------------------
+// Background Services
+// -----------------------
+builder.Services.AddHostedService<RecommendationEmailJob>();
 
 // -----------------------
 // Build App

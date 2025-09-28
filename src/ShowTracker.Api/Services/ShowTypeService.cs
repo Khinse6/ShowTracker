@@ -7,7 +7,7 @@ namespace ShowTracker.Api.Services;
 
 public interface IShowTypeService
 {
-    Task<List<ShowTypeDto>> GetAllAsync();
+    Task<List<ShowTypeDto>> GetAllAsync(string? sortBy, bool sortAsc, int page, int pageSize);
     Task<ShowTypeDto?> GetByIdAsync(int id);
     Task<ShowTypeDto> CreateAsync(CreateShowTypeDto dto);
     Task<List<ShowTypeDto>> BulkCreateAsync(List<CreateShowTypeDto> dtos);
@@ -24,9 +24,21 @@ public class ShowTypeService : IShowTypeService
         _context = context;
     }
 
-    public async Task<List<ShowTypeDto>> GetAllAsync()
+    public async Task<List<ShowTypeDto>> GetAllAsync(string? sortBy, bool sortAsc, int page, int pageSize)
     {
-        return await _context.ShowTypes
+        var query = _context.ShowTypes.AsQueryable();
+
+        query = (sortBy?.ToLower(), sortAsc) switch
+        {
+            ("name", true) => query.OrderBy(t => t.Name),
+            ("name", false) => query.OrderByDescending(t => t.Name),
+            _ => query.OrderBy(t => t.Name)
+        };
+
+        var skip = (page - 1) * pageSize;
+        return await query
+            .Skip(skip)
+            .Take(pageSize)
             .Select(t => new ShowTypeDto { Id = t.Id, Name = t.Name })
             .AsNoTracking()
             .ToListAsync();

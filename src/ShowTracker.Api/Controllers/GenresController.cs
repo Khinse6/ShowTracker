@@ -42,6 +42,7 @@ public class GenresController : ControllerBase
 
     // POST api/genres
     [HttpPost]
+    [Authorize(Roles = "admin")]
     public async Task<ActionResult<GenreDto>> CreateGenre([FromBody] CreateGenreDto dto)
     {
         if (string.IsNullOrWhiteSpace(dto.Name)) { return BadRequest("Genre name is required."); }
@@ -51,6 +52,7 @@ public class GenresController : ControllerBase
     }
 
     [HttpPost("bulk")]
+    [Authorize(Roles = "admin")]
     public async Task<ActionResult<List<GenreDto>>> CreateGenresBulk([FromBody] List<CreateGenreDto> dtos)
     {
         if (dtos == null || !dtos.Any()) { return BadRequest("No genres provided for creation."); }

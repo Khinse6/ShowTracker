@@ -19,10 +19,15 @@ public class FavoritesController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<ShowSummaryDto>>> GetFavorites()
+    public async Task<ActionResult<IEnumerable<ShowSummaryDto>>> GetFavorites(
+        [FromQuery] string? sortBy,
+        [FromQuery] bool sortAsc = true,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 10)
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        var favorites = await _favoritesService.GetFavoritesAsync(userId!);
+        // The service now requires the new parameters for sorting and pagination.
+        var favorites = await _favoritesService.GetFavoritesAsync(userId!, sortBy, sortAsc, page, pageSize);
         return Ok(favorites);
     }
 

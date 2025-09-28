@@ -8,24 +8,20 @@ namespace ShowTracker.Api.Services;
 
 public interface IRecommendationService
 {
-    Task<List<ShowSummaryDto>> GetRecommendationsAsync();
+    Task<List<ShowSummaryDto>> GetRecommendationsForUserAsync(string userId, string? sortBy, bool sortAsc, int page, int pageSize);
 }
 
 public class RecommendationService : IRecommendationService
 {
     private readonly ShowStoreContext _dbContext;
-    private readonly IHttpContextAccessor _httpContextAccessor;
 
-    public RecommendationService(ShowStoreContext dbContext, IHttpContextAccessor httpContextAccessor)
+    public RecommendationService(ShowStoreContext dbContext)
     {
         _dbContext = dbContext;
-        _httpContextAccessor = httpContextAccessor;
     }
 
-    public async Task<List<ShowSummaryDto>> GetRecommendationsAsync()
+    public async Task<List<ShowSummaryDto>> GetRecommendationsForUserAsync(string userId, string? sortBy, bool sortAsc, int page, int pageSize)
     {
-        var userId = _httpContextAccessor.HttpContext?.User.FindFirstValue(ClaimTypes.NameIdentifier);
-
         if (string.IsNullOrEmpty(userId))
         {
             // This should not happen for an authorized endpoint, but it's good practice to check.
@@ -51,12 +47,28 @@ public class RecommendationService : IRecommendationService
             .ToListAsync();
 
         // 3. Find other shows with those genres, excluding already favorited shows
-        var recommendations = await _dbContext.Shows
+        var recommendationsQuery = _dbContext.Shows
             .Include(s => s.Genres)
             .Include(s => s.ShowType)
-            .Where(s => !favoriteShowIds.Contains(s.Id) && s.Genres.Any(g => favoriteGenres.Contains(g.Id)))
-            .OrderByDescending(s => s.ReleaseDate) // Recommend newer shows first
-            .Take(10) // Limit the number of recommendations
+            .Where(s => !favoriteShowIds.Contains(s.Id) && s.Genres.Any(g => favoriteGenres.Contains(g.Id)));
+
+        // 4. Apply sorting
+        // We use a switch statement for security and control over what can be sorted.
+        recommendationsQuery = (sortBy?.ToLower(), sortAsc) switch
+        {
+            ("title", true) => recommendationsQuery.OrderBy(s => s.Title),
+            ("title", false) => recommendationsQuery.OrderByDescending(s => s.Title),
+            ("releasedate", true) => recommendationsQuery.OrderBy(s => s.ReleaseDate),
+            ("releasedate", false) => recommendationsQuery.OrderByDescending(s => s.ReleaseDate),
+            // Default sort
+            _ => recommendationsQuery.OrderByDescending(s => s.ReleaseDate)
+        };
+
+        // 5. Paginate and execute the query
+        var skip = (page - 1) * pageSize;
+        var recommendations = await recommendationsQuery
+            .Skip(skip)
+            .Take(pageSize)
             .ToListAsync();
 
         return recommendations.Select(s => s.ToShowSummaryDto()).ToList();

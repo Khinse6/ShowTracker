@@ -18,11 +18,15 @@ public class ShowGenresController : ControllerBase
 
     // GET api/shows/{id}/genres
     [HttpGet]
-    public async Task<ActionResult<List<string>>> GetGenres(int id)
+    public async Task<ActionResult<List<string>>> GetGenres(
+        int id,
+        [FromQuery] bool sortAsc = true,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 10)
     {
         try
         {
-            var genres = await _service.GetGenresForShowAsync(id);
+            var genres = await _service.GetGenresForShowAsync(id, sortAsc, page, pageSize);
             return Ok(genres);
         }
         catch (KeyNotFoundException)
@@ -33,6 +37,7 @@ public class ShowGenresController : ControllerBase
 
     // POST api/shows/{id}/genres/{genreId}
     [HttpPost("{genreId}")]
+    [Authorize(Roles = "admin")]
     public async Task<IActionResult> AddGenre(int id, int genreId)
     {
         try
@@ -48,6 +53,7 @@ public class ShowGenresController : ControllerBase
 
     // PUT api/shows/{id}/genres
     [HttpPut]
+    [Authorize(Roles = "admin")]
     public async Task<IActionResult> ReplaceGenres(int id, [FromBody] List<int> genreIds)
     {
         try
@@ -63,6 +69,7 @@ public class ShowGenresController : ControllerBase
 
     // DELETE api/shows/{id}/genres/{genreId}
     [HttpDelete("{genreId}")]
+    [Authorize(Roles = "admin")]
     public async Task<IActionResult> RemoveGenre(int id, int genreId)
     {
         try

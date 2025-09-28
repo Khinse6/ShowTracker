@@ -6,7 +6,7 @@ using ShowTracker.Api.Services;
 namespace ShowTracker.Api.Controllers;
 
 [ApiController]
-[Route("api/[controller]")]
+[Route("api/actors")]
 [Authorize]
 public class ActorsController : ControllerBase
 {
@@ -31,11 +31,19 @@ public class ActorsController : ControllerBase
     [HttpGet("{id}")]
     public async Task<ActionResult<ActorDetailsDto>> GetById(int id)
     {
-        var actor = await _actorService.GetActorByIdAsync(id);
-        return Ok(actor);
+        try
+        {
+            var actor = await _actorService.GetActorByIdAsync(id);
+            return Ok(actor);
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound();
+        }
     }
 
     [HttpPost]
+    [Authorize(Roles = "admin")]
     public async Task<ActionResult<ActorSummaryDto>> Create(CreateActorDto dto)
     {
         var actor = await _actorService.CreateActorAsync(dto);
@@ -43,16 +51,32 @@ public class ActorsController : ControllerBase
     }
 
     [HttpPut("{id}")]
+    [Authorize(Roles = "admin")]
     public async Task<IActionResult> Update(int id, UpdateActorDto dto)
     {
-        await _actorService.UpdateActorAsync(id, dto);
-        return NoContent();
+        try
+        {
+            await _actorService.UpdateActorAsync(id, dto);
+            return NoContent();
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound();
+        }
     }
 
     [HttpDelete("{id}")]
+    [Authorize(Roles = "admin")]
     public async Task<IActionResult> Delete(int id)
     {
-        await _actorService.DeleteActorAsync(id);
-        return NoContent();
+        try
+        {
+            await _actorService.DeleteActorAsync(id);
+            return NoContent();
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound();
+        }
     }
 }

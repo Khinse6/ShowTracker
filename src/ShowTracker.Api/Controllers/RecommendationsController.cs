@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using ShowTracker.Api.Dtos;
 using ShowTracker.Api.Services;
+using System.Security.Claims;
 
 namespace ShowTracker.Api.Controllers;
 
@@ -18,9 +19,14 @@ public class RecommendationsController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<List<ShowSummaryDto>>> GetRecommendations()
+    public async Task<ActionResult<List<ShowSummaryDto>>> GetRecommendations(
+        [FromQuery] string? sortBy,
+        [FromQuery] bool sortAsc = true,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 10)
     {
-        var recommendations = await _recommendationService.GetRecommendationsAsync();
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+        var recommendations = await _recommendationService.GetRecommendationsForUserAsync(userId, sortBy, sortAsc, page, pageSize);
         return Ok(recommendations);
     }
 }

@@ -5,7 +5,7 @@ namespace ShowTracker.Api.Services;
 
 public interface IShowGenresService
 {
-    Task<List<string>> GetGenresForShowAsync(int showId);
+    Task<List<string>> GetGenresForShowAsync(int showId, bool sortAsc, int page, int pageSize);
     Task AddGenreToShowAsync(int showId, int genreId);
     Task RemoveGenreFromShowAsync(int showId, int genreId);
     Task ReplaceGenresForShowAsync(int showId, List<int> genreIds);
@@ -21,18 +21,23 @@ public class ShowGenresService : IShowGenresService
         _dbContext = dbContext;
     }
 
-    public async Task<List<string>> GetGenresForShowAsync(int showId)
+    public async Task<List<string>> GetGenresForShowAsync(int showId, bool sortAsc, int page, int pageSize)
     {
-        var show = await _dbContext.Shows
-                .Include(s => s.Genres)
-                .FirstOrDefaultAsync(s => s.Id == showId);
-
-        if (show == null)
+        var showExists = await _dbContext.Shows.AnyAsync(s => s.Id == showId);
+        if (!showExists)
         {
             throw new KeyNotFoundException("Show not found");
         }
 
-        return show.Genres.Select(g => g.Name).ToList();
+        var genresQuery = _dbContext.Genres
+            .Where(g => g.Shows.Any(s => s.Id == showId));
+
+        genresQuery = sortAsc ? genresQuery.OrderBy(g => g.Name) : genresQuery.OrderByDescending(g => g.Name);
+
+        var skip = (page - 1) * pageSize;
+        return await genresQuery.Skip(skip).Take(pageSize)
+            .Select(g => g.Name)
+            .ToListAsync();
     }
 
     public async Task AddGenreToShowAsync(int showId, int genreId)
