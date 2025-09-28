@@ -9,11 +9,11 @@ namespace ShowTracker.Api.Controllers;
 [Authorize(Roles = "admin")]
 public class JobsController : ControllerBase
 {
-    private readonly RecommendationEmailJob _recommendationEmailJob;
+    private readonly IRecommendationJobService _recommendationJobService;
 
-    public JobsController(RecommendationEmailJob recommendationEmailJob)
+    public JobsController(IRecommendationJobService recommendationJobService)
     {
-        _recommendationEmailJob = recommendationEmailJob;
+        _recommendationJobService = recommendationJobService;
     }
 
     /// <summary>
@@ -21,9 +21,9 @@ public class JobsController : ControllerBase
     /// </summary>
     [HttpPost("send-recommendations")]
     [ProducesResponseType(StatusCodes.Status202Accepted)]
-    public IActionResult SendRecommendationEmails()
+    public async Task<IActionResult> SendRecommendationEmails()
     {
-        _ = _recommendationEmailJob.TriggerManually(HttpContext.RequestAborted);
+        await _recommendationJobService.TriggerManually(HttpContext.RequestAborted);
         return Accepted(new { message = "Recommendation email job has been triggered." });
     }
 }

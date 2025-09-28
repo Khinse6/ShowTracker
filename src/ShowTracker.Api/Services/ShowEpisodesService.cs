@@ -10,7 +10,7 @@ using ShowTracker.Api.Dtos;
 
 public interface IShowEpisodesService
 {
-    Task<List<EpisodeDto>> GetEpisodesForSeasonAsync(int seasonId, string? sortBy, bool sortAsc, int page, int pageSize);
+    Task<List<EpisodeDto>> GetEpisodesForSeasonAsync(int seasonId, QueryParameters<EpisodeSortBy> parameters);
     Task<EpisodeDto?> GetEpisodeAsync(int seasonId, int episodeId);
     Task<EpisodeDto> CreateEpisodeAsync(int seasonId, CreateEpisodeDto dto);
     Task<List<EpisodeDto>> CreateEpisodesAsync(int seasonId, List<CreateEpisodeDto> dtos);
@@ -27,25 +27,25 @@ public class ShowEpisodesService : IShowEpisodesService
         _context = context;
     }
 
-    public async Task<List<EpisodeDto>> GetEpisodesForSeasonAsync(int seasonId, string? sortBy, bool sortAsc, int page, int pageSize)
+    public async Task<List<EpisodeDto>> GetEpisodesForSeasonAsync(int seasonId, QueryParameters<EpisodeSortBy> parameters)
     {
         var episodesQuery = _context.Episodes
             .Where(e => e.SeasonId == seasonId)
             .AsQueryable();
 
-        episodesQuery = (sortBy?.ToLower(), sortAsc) switch
+        episodesQuery = (parameters.SortBy, parameters.SortOrder) switch
         {
-            ("episodenumber", true) => episodesQuery.OrderBy(e => e.EpisodeNumber),
-            ("episodenumber", false) => episodesQuery.OrderByDescending(e => e.EpisodeNumber),
-            ("releasedate", true) => episodesQuery.OrderBy(e => e.ReleaseDate),
-            ("releasedate", false) => episodesQuery.OrderByDescending(e => e.ReleaseDate),
+            (EpisodeSortBy.EpisodeNumber, SortOrder.asc) => episodesQuery.OrderBy(e => e.EpisodeNumber),
+            (EpisodeSortBy.EpisodeNumber, SortOrder.desc) => episodesQuery.OrderByDescending(e => e.EpisodeNumber),
+            (EpisodeSortBy.ReleaseDate, SortOrder.asc) => episodesQuery.OrderBy(e => e.ReleaseDate),
+            (EpisodeSortBy.ReleaseDate, SortOrder.desc) => episodesQuery.OrderByDescending(e => e.ReleaseDate),
             _ => episodesQuery.OrderBy(e => e.EpisodeNumber)
         };
 
-        var skip = (page - 1) * pageSize;
+        var skip = (parameters.Page - 1) * parameters.PageSize;
         var episodes = await episodesQuery
             .Skip(skip)
-            .Take(pageSize)
+            .Take(parameters.PageSize)
             .ToListAsync();
 
         return episodes.Select(e => e.ToDto()).ToList();

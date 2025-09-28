@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using ShowTracker.Api.Dtos;
+using ShowTracker.Api.Helpers;
 using ShowTracker.Api.Services;
 
 namespace ShowTracker.Api.Controllers;
@@ -8,7 +9,7 @@ namespace ShowTracker.Api.Controllers;
 [ApiController]
 [Route("api/shows/{showId}/seasons")]
 [Authorize]
-public class SeasonsController : ControllerBase
+public class SeasonsController : ExportableControllerBase
 {
     private readonly IShowSeasonsService _seasonService;
 
@@ -19,15 +20,15 @@ public class SeasonsController : ControllerBase
 
     // GET api/shows/{showId}/seasons
     [HttpGet]
-    public async Task<ActionResult<List<SeasonDto>>> GetSeasons(
+    [ProducesResponseType(typeof(IEnumerable<SeasonDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(FileContentResult), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetSeasons(
         int showId,
-        [FromQuery] string? sortBy,
-        [FromQuery] bool sortAsc = true,
-        [FromQuery] int page = 1,
-        [FromQuery] int pageSize = 10)
+        [FromQuery] QueryParameters<SeasonSortBy> parameters)
     {
-        var seasons = await _seasonService.GetSeasonsForShowAsync(showId, sortBy, sortAsc, page, pageSize);
-        return Ok(seasons);
+        var seasons = await _seasonService.GetSeasonsForShowAsync(showId, parameters);
+
+        return CreateExportOrOkResult(seasons, parameters.Format, $"Seasons for Show ID: {showId}", $"show-{showId}-seasons");
     }
 
     // GET api/shows/{showId}/seasons/{seasonId}

@@ -11,18 +11,20 @@ public static class ActorMapper
         return new ActorSummaryDto
         {
             Id = actor.Id,
-            Name = actor.Name
+            Name = actor.Name,
+
         };
     }
 
     // Actor -> ActorDetailsDto
+
     public static ActorDetailsDto ToDetailsDto(this Actor actor)
     {
         return new ActorDetailsDto
         {
             Id = actor.Id,
             Name = actor.Name,
-            Shows = actor.Shows?.Select(s => s.ToShowSummaryDto()).ToList() ?? new List<ShowSummaryDto>()
+            Shows = actor.Shows?.Select(s => s.Title).ToList() ?? new List<string>()
         };
     }
 

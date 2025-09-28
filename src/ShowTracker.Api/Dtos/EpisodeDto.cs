@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace ShowTracker.Api.Dtos;
 
 public record class EpisodeDto
@@ -7,6 +9,13 @@ public record class EpisodeDto
     public required string Description { get; set; }
     public required int EpisodeNumber { get; set; }
     public required DateOnly ReleaseDate { get; set; }
+}
+
+[JsonConverter(typeof(JsonStringEnumConverter))]
+public enum EpisodeSortBy
+{
+    EpisodeNumber,
+    ReleaseDate
 }
 
 public record class CreateEpisodeDto

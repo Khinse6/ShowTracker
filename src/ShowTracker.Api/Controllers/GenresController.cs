@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using ShowTracker.Api.Dtos;
+using ShowTracker.Api.Helpers;
 using ShowTracker.Api.Services;
 
 namespace ShowTracker.Api.Controllers;
@@ -8,7 +9,7 @@ namespace ShowTracker.Api.Controllers;
 [ApiController]
 [Route("api/genres")]
 [Authorize]
-public class GenresController : ControllerBase
+public class GenresController : ExportableControllerBase
 {
     private readonly IGenreService _genreService;
 
@@ -17,20 +18,21 @@ public class GenresController : ControllerBase
         _genreService = genreService;
     }
 
-    // GET api/genres
     [HttpGet]
-    public async Task<ActionResult<List<GenreDto>>> GetAllGenres(
-        [FromQuery] string? sortBy,
-        [FromQuery] bool descending = false,
-        [FromQuery] int page = 1,
-        [FromQuery] int pageSize = 10)
+    [ProducesResponseType(typeof(IEnumerable<GenreDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(FileContentResult), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetAllGenres(
+        [FromQuery] QueryParameters<GenreSortBy> parameters)
     {
-        var genres = await _genreService.GetAllGenresAsync(sortBy, descending, page, pageSize);
-        return Ok(genres);
+        var genres = await _genreService.GetAllGenresAsync(parameters);
+
+        return CreateExportOrOkResult(genres, parameters.Format, "Genres Report", "genres");
     }
 
-    [HttpGet("{id}", Name = "GetGenre")]
-    public async Task<ActionResult<GenreDto>> GetGenre(int id)
+    [HttpGet("{id}")]
+    [ProducesResponseType(typeof(GenreDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetById(int id)
     {
         var genre = await _genreService.GetGenreByIdAsync(id);
         if (genre == null)
@@ -40,24 +42,46 @@ public class GenresController : ControllerBase
         return Ok(genre);
     }
 
-    // POST api/genres
     [HttpPost]
     [Authorize(Roles = "admin")]
-    public async Task<ActionResult<GenreDto>> CreateGenre([FromBody] CreateGenreDto dto)
+    [ProducesResponseType(typeof(GenreDto), StatusCodes.Status201Created)]
+    public async Task<IActionResult> Create([FromBody] CreateGenreDto dto)
     {
-        if (string.IsNullOrWhiteSpace(dto.Name)) { return BadRequest("Genre name is required."); }
-
-        var created = await _genreService.CreateGenreAsync(dto);
-        return CreatedAtAction(nameof(GetGenre), new { id = created.Id }, created);
+        var genre = await _genreService.CreateGenreAsync(dto);
+        return CreatedAtAction(nameof(GetById), new { id = genre.Id }, genre);
     }
 
-    [HttpPost("bulk")]
+    [HttpPut("{id}")]
     [Authorize(Roles = "admin")]
-    public async Task<ActionResult<List<GenreDto>>> CreateGenresBulk([FromBody] List<CreateGenreDto> dtos)
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> Update(int id, [FromBody] UpdateGenreDto dto)
     {
-        if (dtos == null || !dtos.Any()) { return BadRequest("No genres provided for creation."); }
+        try
+        {
+            await _genreService.UpdateGenreAsync(id, dto);
+            return NoContent();
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound();
+        }
+    }
 
-        var createdGenres = await _genreService.CreateGenresAsync(dtos);
-        return Ok(createdGenres);
+    [HttpDelete("{id}")]
+    [Authorize(Roles = "admin")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> Delete(int id)
+    {
+        try
+        {
+            await _genreService.DeleteGenreAsync(id);
+            return NoContent();
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound();
+        }
     }
 }

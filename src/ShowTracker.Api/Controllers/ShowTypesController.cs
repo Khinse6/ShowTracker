@@ -1,37 +1,38 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using ShowTracker.Api.Dtos;
+using ShowTracker.Api.Helpers;
 using ShowTracker.Api.Services;
 
 namespace ShowTracker.Api.Controllers;
 
 [ApiController]
-[Route("api/types")]
+[Route("api/showtypes")]
 [Authorize]
-public class ShowTypesController : ControllerBase
+public class ShowTypesController : ExportableControllerBase
 {
-    private readonly IShowTypeService _service;
+    private readonly IShowTypeService _showTypeService;
 
-    public ShowTypesController(IShowTypeService service)
+    public ShowTypesController(IShowTypeService showTypeService)
     {
-        _service = service;
+        _showTypeService = showTypeService;
     }
 
     [HttpGet]
+    [ProducesResponseType(typeof(IEnumerable<ShowTypeDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(FileContentResult), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetAll(
-        [FromQuery] string? sortBy,
-        [FromQuery] bool sortAsc = true,
-        [FromQuery] int page = 1,
-        [FromQuery] int pageSize = 10)
+        [FromQuery] QueryParameters<ShowTypeSortBy> parameters)
     {
-        var types = await _service.GetAllAsync(sortBy, sortAsc, page, pageSize);
-        return Ok(types);
+        var showTypes = await _showTypeService.GetAllAsync(parameters);
+
+        return CreateExportOrOkResult(showTypes, parameters.Format, "Show Types Report", "show-types");
     }
 
     [HttpGet("{id}")]
     public async Task<IActionResult> GetById(int id)
     {
-        var type = await _service.GetByIdAsync(id);
+        var type = await _showTypeService.GetByIdAsync(id);
         if (type == null) { return NotFound(); }
         return Ok(type);
     }
@@ -40,7 +41,7 @@ public class ShowTypesController : ControllerBase
     [Authorize(Roles = "admin")]
     public async Task<IActionResult> Create([FromBody] CreateShowTypeDto dto)
     {
-        var type = await _service.CreateAsync(dto);
+        var type = await _showTypeService.CreateAsync(dto);
         return CreatedAtAction(nameof(GetById), new { id = type.Id }, type);
     }
 
@@ -48,7 +49,7 @@ public class ShowTypesController : ControllerBase
     [Authorize(Roles = "admin")]
     public async Task<IActionResult> BulkCreate([FromBody] List<CreateShowTypeDto> dtos)
     {
-        var types = await _service.BulkCreateAsync(dtos);
+        var types = await _showTypeService.BulkCreateAsync(dtos);
         return Ok(types);
     }
 
@@ -58,7 +59,7 @@ public class ShowTypesController : ControllerBase
     {
         try
         {
-            await _service.UpdateAsync(id, dto);
+            await _showTypeService.UpdateAsync(id, dto);
         }
         catch (KeyNotFoundException)
         {
@@ -73,7 +74,7 @@ public class ShowTypesController : ControllerBase
     {
         try
         {
-            await _service.DeleteAsync(id);
+            await _showTypeService.DeleteAsync(id);
         }
         catch (KeyNotFoundException)
         {

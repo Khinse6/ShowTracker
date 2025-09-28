@@ -8,7 +8,7 @@ namespace ShowTracker.Api.Services;
 
 public interface IShowSeasonsService
 {
-    Task<List<SeasonDto>> GetSeasonsForShowAsync(int showId, string? sortBy, bool sortAsc, int page, int pageSize);
+    Task<List<SeasonDto>> GetSeasonsForShowAsync(int showId, QueryParameters<SeasonSortBy> parameters);
     Task<SeasonDto?> GetSeasonAsync(int showId, int seasonId);
     Task<SeasonDto> CreateSeasonAsync(CreateSeasonDto dto);
     Task<List<SeasonDto>> CreateSeasonsAsync(int showId, List<CreateSeasonDto> dtos);
@@ -26,26 +26,26 @@ public class ShowSeasonsService : IShowSeasonsService
         _context = context;
     }
 
-    public async Task<List<SeasonDto>> GetSeasonsForShowAsync(int showId, string? sortBy, bool sortAsc, int page, int pageSize)
+    public async Task<List<SeasonDto>> GetSeasonsForShowAsync(int showId, QueryParameters<SeasonSortBy> parameters)
     {
         var seasonsQuery = _context.Seasons
             .Include(s => s.Episodes)
             .Where(s => s.ShowId == showId)
             .AsQueryable();
 
-        seasonsQuery = (sortBy?.ToLower(), sortAsc) switch
+        seasonsQuery = (parameters.SortBy, parameters.SortOrder) switch
         {
-            ("seasonnumber", true) => seasonsQuery.OrderBy(s => s.SeasonNumber),
-            ("seasonnumber", false) => seasonsQuery.OrderByDescending(s => s.SeasonNumber),
-            ("releasedate", true) => seasonsQuery.OrderBy(s => s.ReleaseDate),
-            ("releasedate", false) => seasonsQuery.OrderByDescending(s => s.ReleaseDate),
+            (SeasonSortBy.SeasonNumber, SortOrder.asc) => seasonsQuery.OrderBy(s => s.SeasonNumber),
+            (SeasonSortBy.SeasonNumber, SortOrder.desc) => seasonsQuery.OrderByDescending(s => s.SeasonNumber),
+            (SeasonSortBy.ReleaseDate, SortOrder.asc) => seasonsQuery.OrderBy(s => s.ReleaseDate),
+            (SeasonSortBy.ReleaseDate, SortOrder.desc) => seasonsQuery.OrderByDescending(s => s.ReleaseDate),
             _ => seasonsQuery.OrderBy(s => s.SeasonNumber)
         };
 
-        var skip = (page - 1) * pageSize;
+        var skip = (parameters.Page - 1) * parameters.PageSize;
         var seasons = await seasonsQuery
             .Skip(skip)
-            .Take(pageSize)
+            .Take(parameters.PageSize)
             .ToListAsync();
 
         return seasons.Select(s => s.ToDto()).ToList();

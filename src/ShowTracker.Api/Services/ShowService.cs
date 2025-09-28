@@ -7,7 +7,7 @@ namespace ShowTracker.Api.Services;
 
 public interface IShowService
 {
-    Task<List<ShowSummaryDto>> GetAllShowsAsync(string? genre, string? type, string? sortBy, bool descending, int page, int pageSize);
+    Task<List<ShowSummaryDto>> GetAllShowsAsync(string? genre, string? type, QueryParameters<ShowSortBy> parameters);
     Task<ShowDetailsDto?> GetShowByIdAsync(int id);
     Task<ShowSummaryDto> CreateShowAsync(CreateShowDto dto);
     Task<List<ShowSummaryDto>> CreateShowsAsync(List<CreateShowDto> dtos);
@@ -27,10 +27,7 @@ public class ShowService : IShowService
     public async Task<List<ShowSummaryDto>> GetAllShowsAsync(
         string? genre,
         string? type,
-        string? sortBy,
-        bool descending,
-        int page,
-        int pageSize)
+        QueryParameters<ShowSortBy> parameters)
     {
         var showsQuery = _dbContext.Shows
             .Include(s => s.Genres)
@@ -43,18 +40,16 @@ public class ShowService : IShowService
         if (!string.IsNullOrWhiteSpace(type))
         { showsQuery = showsQuery.Where(s => s.ShowType.Name == type); }
 
-        if (!string.IsNullOrWhiteSpace(sortBy))
+        showsQuery = (parameters.SortBy, parameters.SortOrder) switch
         {
-            showsQuery = sortBy.ToLower() switch
-            {
-                "title" => descending ? showsQuery.OrderByDescending(s => s.Title) : showsQuery.OrderBy(s => s.Title),
-                "releasedate" => descending ? showsQuery.OrderByDescending(s => s.ReleaseDate) : showsQuery.OrderBy(s => s.ReleaseDate),
-                _ => showsQuery
-            };
-        }
+            (ShowSortBy.Title, SortOrder.asc) => showsQuery.OrderBy(s => s.Title),
+            (ShowSortBy.Title, SortOrder.desc) => showsQuery.OrderByDescending(s => s.Title),
+            (ShowSortBy.ReleaseDate, SortOrder.asc) => showsQuery.OrderBy(s => s.ReleaseDate),
+            _ => showsQuery.OrderByDescending(s => s.ReleaseDate)
+        };
 
-        var skip = (page - 1) * pageSize;
-        var shows = await showsQuery.Skip(skip).Take(pageSize).ToListAsync();
+        var skip = (parameters.Page - 1) * parameters.PageSize;
+        var shows = await showsQuery.Skip(skip).Take(parameters.PageSize).ToListAsync();
 
         return shows.Select(s => s.ToShowSummaryDto()).ToList();
     }

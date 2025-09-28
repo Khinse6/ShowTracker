@@ -1,11 +1,12 @@
 using Microsoft.EntityFrameworkCore;
 using ShowTracker.Api.Data;
+using ShowTracker.Api.Dtos;
 
 namespace ShowTracker.Api.Services;
 
 public interface IShowGenresService
 {
-    Task<List<string>> GetGenresForShowAsync(int showId, bool sortAsc, int page, int pageSize);
+    Task<List<string>> GetGenresForShowAsync(int showId, QueryParameters<GenreSortBy> parameters);
     Task AddGenreToShowAsync(int showId, int genreId);
     Task RemoveGenreFromShowAsync(int showId, int genreId);
     Task ReplaceGenresForShowAsync(int showId, List<int> genreIds);
@@ -21,7 +22,7 @@ public class ShowGenresService : IShowGenresService
         _dbContext = dbContext;
     }
 
-    public async Task<List<string>> GetGenresForShowAsync(int showId, bool sortAsc, int page, int pageSize)
+    public async Task<List<string>> GetGenresForShowAsync(int showId, QueryParameters<GenreSortBy> parameters)
     {
         var showExists = await _dbContext.Shows.AnyAsync(s => s.Id == showId);
         if (!showExists)
@@ -32,10 +33,16 @@ public class ShowGenresService : IShowGenresService
         var genresQuery = _dbContext.Genres
             .Where(g => g.Shows.Any(s => s.Id == showId));
 
-        genresQuery = sortAsc ? genresQuery.OrderBy(g => g.Name) : genresQuery.OrderByDescending(g => g.Name);
+        // Apply sorting using the QueryParameters
+        genresQuery = (parameters.SortBy, parameters.SortOrder) switch
+        {
+            (GenreSortBy.Name, SortOrder.asc) => genresQuery.OrderBy(g => g.Name),
+            (GenreSortBy.Name, SortOrder.desc) => genresQuery.OrderByDescending(g => g.Name),
+            _ => genresQuery.OrderBy(g => g.Name) // Default sort
+        };
 
-        var skip = (page - 1) * pageSize;
-        return await genresQuery.Skip(skip).Take(pageSize)
+        var skip = (parameters.Page - 1) * parameters.PageSize;
+        return await genresQuery.Skip(skip).Take(parameters.PageSize)
             .Select(g => g.Name)
             .ToListAsync();
     }
@@ -72,20 +79,17 @@ public class ShowGenresService : IShowGenresService
                 .Include(s => s.Genres)
                 .FirstOrDefaultAsync(s => s.Id == showId);
 
-        var genre = await _dbContext.Genres.FindAsync(genreId);
-
         if (show == null)
         {
             throw new KeyNotFoundException("Show not found");
         }
 
-        if (genre == null)
+        var genreToRemove = show.Genres.FirstOrDefault(g => g.Id == genreId);
+        if (genreToRemove != null)
         {
-            throw new KeyNotFoundException("Genre not found");
+            show.Genres.Remove(genreToRemove);
+            await _dbContext.SaveChangesAsync();
         }
-
-        show.Genres.Remove(genre);
-        await _dbContext.SaveChangesAsync();
     }
 
     public async Task ReplaceGenresForShowAsync(int showId, List<int> genreIds)
@@ -102,6 +106,12 @@ public class ShowGenresService : IShowGenresService
         var genres = await _dbContext.Genres
                 .Where(g => genreIds.Contains(g.Id))
                 .ToListAsync();
+
+        // Validate that all requested genres were found
+        if (genres.Count != genreIds.Distinct().Count())
+        {
+            throw new KeyNotFoundException("One or more genres not found.");
+        }
 
         show.Genres.Clear();
         show.Genres.AddRange(genres);

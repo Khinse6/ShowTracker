@@ -1,87 +1,61 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using ShowTracker.Api.Dtos;
+using ShowTracker.Api.Helpers;
 using ShowTracker.Api.Services;
 
 namespace ShowTracker.Api.Controllers;
 
 [ApiController]
-[Route("api/shows/{id}/genres")]
+[Route("api/shows/{showId}/genres")]
 [Authorize]
-public class ShowGenresController : ControllerBase
+public class ShowGenresController : ExportableControllerBase
 {
-    private readonly IShowGenresService _service;
+    private readonly IShowGenresService _showGenresService;
 
-    public ShowGenresController(IShowGenresService service)
+    public ShowGenresController(IShowGenresService showGenresService)
     {
-        _service = service;
+        _showGenresService = showGenresService;
     }
 
-    // GET api/shows/{id}/genres
     [HttpGet]
-    public async Task<ActionResult<List<string>>> GetGenres(
-        int id,
-        [FromQuery] bool sortAsc = true,
-        [FromQuery] int page = 1,
-        [FromQuery] int pageSize = 10)
+    [ProducesResponseType(typeof(IEnumerable<string>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(FileContentResult), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetShowGenres(int showId, [FromQuery] QueryParameters<GenreSortBy> parameters)
     {
         try
         {
-            var genres = await _service.GetGenresForShowAsync(id, sortAsc, page, pageSize);
-            return Ok(genres);
+            var genres = await _showGenresService.GetGenresForShowAsync(showId, parameters);
+
+            return CreateExportOrOkResult(genres, parameters.Format, $"Genres for Show ID: {showId}", $"show-{showId}-genres");
         }
         catch (KeyNotFoundException)
         {
-            return NotFound();
+            return NotFound("Show not found.");
         }
     }
 
-    // POST api/shows/{id}/genres/{genreId}
     [HttpPost("{genreId}")]
     [Authorize(Roles = "admin")]
-    public async Task<IActionResult> AddGenre(int id, int genreId)
+    public async Task<IActionResult> AddGenreToShow(int showId, int genreId)
     {
-        try
-        {
-            await _service.AddGenreToShowAsync(id, genreId);
-            return NoContent();
-        }
-        catch (KeyNotFoundException e)
-        {
-            return NotFound(new { message = e.Message });
-        }
+        await _showGenresService.AddGenreToShowAsync(showId, genreId);
+        return NoContent();
     }
 
-    // PUT api/shows/{id}/genres
-    [HttpPut]
-    [Authorize(Roles = "admin")]
-    public async Task<IActionResult> ReplaceGenres(int id, [FromBody] List<int> genreIds)
-    {
-        try
-        {
-            await _service.ReplaceGenresForShowAsync(id, genreIds);
-            return NoContent();
-        }
-        catch (KeyNotFoundException e)
-        {
-            return NotFound(new { message = e.Message });
-        }
-    }
-
-    // DELETE api/shows/{id}/genres/{genreId}
     [HttpDelete("{genreId}")]
     [Authorize(Roles = "admin")]
-    public async Task<IActionResult> RemoveGenre(int id, int genreId)
+    public async Task<IActionResult> RemoveGenreFromShow(int showId, int genreId)
     {
-        try
-        {
-            await _service.RemoveGenreFromShowAsync(id, genreId);
-            return NoContent();
-        }
-        catch (KeyNotFoundException e)
-        {
-            return NotFound(new { message = e.Message });
-        }
+        await _showGenresService.RemoveGenreFromShowAsync(showId, genreId);
+        return NoContent();
     }
 
-
+    [HttpPut]
+    [Authorize(Roles = "admin")]
+    public async Task<IActionResult> ReplaceGenresForShow(int showId, [FromBody] List<int> genreIds)
+    {
+        await _showGenresService.ReplaceGenresForShowAsync(showId, genreIds);
+        return NoContent();
+    }
 }

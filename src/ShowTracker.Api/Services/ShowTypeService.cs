@@ -7,7 +7,7 @@ namespace ShowTracker.Api.Services;
 
 public interface IShowTypeService
 {
-    Task<List<ShowTypeDto>> GetAllAsync(string? sortBy, bool sortAsc, int page, int pageSize);
+    Task<List<ShowTypeDto>> GetAllAsync(QueryParameters<ShowTypeSortBy> parameters);
     Task<ShowTypeDto?> GetByIdAsync(int id);
     Task<ShowTypeDto> CreateAsync(CreateShowTypeDto dto);
     Task<List<ShowTypeDto>> BulkCreateAsync(List<CreateShowTypeDto> dtos);
@@ -24,21 +24,21 @@ public class ShowTypeService : IShowTypeService
         _context = context;
     }
 
-    public async Task<List<ShowTypeDto>> GetAllAsync(string? sortBy, bool sortAsc, int page, int pageSize)
+    public async Task<List<ShowTypeDto>> GetAllAsync(QueryParameters<ShowTypeSortBy> parameters)
     {
         var query = _context.ShowTypes.AsQueryable();
 
-        query = (sortBy?.ToLower(), sortAsc) switch
+        query = (parameters.SortBy, parameters.SortOrder) switch
         {
-            ("name", true) => query.OrderBy(t => t.Name),
-            ("name", false) => query.OrderByDescending(t => t.Name),
+            (ShowTypeSortBy.Name, SortOrder.asc) => query.OrderBy(t => t.Name),
+            (ShowTypeSortBy.Name, SortOrder.desc) => query.OrderByDescending(t => t.Name),
             _ => query.OrderBy(t => t.Name)
         };
 
-        var skip = (page - 1) * pageSize;
+        var skip = (parameters.Page - 1) * parameters.PageSize;
         return await query
             .Skip(skip)
-            .Take(pageSize)
+            .Take(parameters.PageSize)
             .Select(t => new ShowTypeDto { Id = t.Id, Name = t.Name })
             .AsNoTracking()
             .ToListAsync();

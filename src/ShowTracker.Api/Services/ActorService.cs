@@ -8,7 +8,7 @@ namespace ShowTracker.Api.Services;
 
 public interface IActorService
 {
-    Task<List<ActorSummaryDto>> GetAllActorsAsync(string? sortBy, bool descending, int page, int pageSize);
+    Task<List<ActorSummaryDto>> GetAllActorsAsync(QueryParameters<ActorSortBy> parameters);
     Task<ActorDetailsDto> GetActorByIdAsync(int id);
     Task<ActorSummaryDto> CreateActorAsync(CreateActorDto dto);
     Task UpdateActorAsync(int id, UpdateActorDto dto);
@@ -24,23 +24,22 @@ public class ActorService : IActorService
         _dbContext = dbContext;
     }
 
-    public async Task<List<ActorSummaryDto>> GetAllActorsAsync(string? sortBy, bool descending, int page, int pageSize)
+    public async Task<List<ActorSummaryDto>> GetAllActorsAsync(QueryParameters<ActorSortBy> parameters)
     {
         var actorsQuery = _dbContext.Actors.AsQueryable();
 
-        if (!string.IsNullOrWhiteSpace(sortBy))
+        actorsQuery = (parameters.SortBy, parameters.SortOrder) switch
         {
-            actorsQuery = sortBy.ToLower() switch
-            {
-                "name" => descending ? actorsQuery.OrderByDescending(a => a.Name) : actorsQuery.OrderBy(a => a.Name),
-                _ => actorsQuery
-            };
-        }
+            (ActorSortBy.Name, SortOrder.desc) => actorsQuery.OrderByDescending(a => a.Name),
+            (ActorSortBy.Name, SortOrder.asc) => actorsQuery.OrderBy(a => a.Name),
+            _ => actorsQuery.OrderBy(a => a.Name)
+        };
 
-        var skip = (page - 1) * pageSize;
+        var skip = (parameters.Page - 1) * parameters.PageSize;
         var actors = await actorsQuery
+            .Include(a => a.Shows)
             .Skip(skip)
-            .Take(pageSize)
+            .Take(parameters.PageSize)
             .ToListAsync();
 
         return actors.Select(actor => actor.ToSummaryDto()).ToList();
@@ -50,9 +49,6 @@ public class ActorService : IActorService
     {
         var actor = await _dbContext.Actors
             .Include(a => a.Shows)
-                .ThenInclude(s => s.ShowType)
-            .Include(a => a.Shows)
-                .ThenInclude(s => s.Genres)
             .FirstOrDefaultAsync(a => a.Id == id);
 
         if (actor == null) { throw new KeyNotFoundException("Actor not found"); }

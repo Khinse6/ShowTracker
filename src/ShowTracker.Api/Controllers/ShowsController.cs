@@ -3,12 +3,13 @@ using Microsoft.AspNetCore.Mvc;
 using ShowTracker.Api.Dtos;
 using ShowTracker.Api.Services;
 
+
 namespace ShowTracker.Api.Controllers;
 
 [ApiController]
 [Route("api/shows")]
 [Authorize]
-public class ShowsController : ControllerBase
+public class ShowsController : ExportableControllerBase
 {
     private readonly IShowService _showService;
 
@@ -18,16 +19,16 @@ public class ShowsController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<ShowSummaryDto>>> GetAllShows(
+    [ProducesResponseType(typeof(IEnumerable<ShowSummaryDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(FileContentResult), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetAllShows(
         [FromQuery] string? genre,
         [FromQuery] string? type,
-        [FromQuery] string? sortBy,
-        [FromQuery] bool descending = false,
-        [FromQuery] int page = 1,
-        [FromQuery] int pageSize = 10)
+        [FromQuery] QueryParameters<ShowSortBy> parameters)
     {
-        var shows = await _showService.GetAllShowsAsync(genre, type, sortBy, descending, page, pageSize);
-        return Ok(shows);
+        var shows = await _showService.GetAllShowsAsync(genre, type, parameters);
+
+        return CreateExportOrOkResult(shows, parameters.Format, "Shows Report", "shows");
     }
 
 

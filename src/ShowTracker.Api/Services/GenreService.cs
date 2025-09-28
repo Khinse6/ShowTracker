@@ -8,10 +8,12 @@ namespace ShowTracker.Api.Services;
 
 public interface IGenreService
 {
-    Task<List<GenreDto>> GetAllGenresAsync(string? sortBy, bool descending, int page, int pageSize);
+    Task<List<GenreDto>> GetAllGenresAsync(QueryParameters<GenreSortBy> parameters);
     Task<GenreDto?> GetGenreByIdAsync(int id);
     Task<GenreDto> CreateGenreAsync(CreateGenreDto dto);
     Task<List<GenreDto>> CreateGenresAsync(List<CreateGenreDto> dtos);
+    Task UpdateGenreAsync(int id, UpdateGenreDto dto);
+    Task DeleteGenreAsync(int id);
 }
 
 public class GenreService : IGenreService
@@ -23,24 +25,22 @@ public class GenreService : IGenreService
         _context = context;
     }
 
-    public async Task<List<GenreDto>> GetAllGenresAsync(string? sortBy, bool descending, int page, int pageSize)
+    public async Task<List<GenreDto>> GetAllGenresAsync(QueryParameters<GenreSortBy> parameters)
     {
 
         var genresQuery = _context.Genres.AsQueryable();
 
-        if (!string.IsNullOrWhiteSpace(sortBy))
+        genresQuery = (parameters.SortBy, parameters.SortOrder) switch
         {
-            genresQuery = sortBy.ToLower() switch
-            {
-                "name" => descending ? genresQuery.OrderByDescending(g => g.Name) : genresQuery.OrderBy(g => g.Name),
-                _ => genresQuery
-            };
-        }
+            (GenreSortBy.Name, SortOrder.desc) => genresQuery.OrderByDescending(g => g.Name),
+            (GenreSortBy.Name, SortOrder.asc) => genresQuery.OrderBy(g => g.Name),
+            _ => genresQuery.OrderBy(g => g.Name)
+        };
 
-        var skip = (page - 1) * pageSize;
+        var skip = (parameters.Page - 1) * parameters.PageSize;
         var genres = await genresQuery
             .Skip(skip)
-            .Take(pageSize)
+            .Take(parameters.PageSize)
             .ToListAsync();
 
         return genres.Select(genre => genre.ToDto()).ToList();
@@ -83,5 +83,29 @@ public class GenreService : IGenreService
         await _context.SaveChangesAsync();
 
         return genres.Select(g => g.ToDto()).ToList();
+    }
+
+    public async Task UpdateGenreAsync(int id, UpdateGenreDto dto)
+    {
+        var genre = await _context.Genres.FindAsync(id);
+        if (genre == null)
+        {
+            throw new KeyNotFoundException("Genre not found");
+        }
+
+        genre.Name = dto.Name;
+        await _context.SaveChangesAsync();
+    }
+
+    public async Task DeleteGenreAsync(int id)
+    {
+        var genre = await _context.Genres.FindAsync(id);
+        if (genre == null)
+        {
+            throw new KeyNotFoundException("Genre not found");
+        }
+
+        _context.Genres.Remove(genre);
+        await _context.SaveChangesAsync();
     }
 }

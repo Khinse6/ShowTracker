@@ -1,4 +1,5 @@
 
+using System.Text.Json.Serialization;
 namespace ShowTracker.Api.Dtos;
 
 public record class GenreDto
@@ -10,6 +11,12 @@ public record class GenreDto
 public record class CreateGenreDto
 {
     public required string Name { get; set; }
+}
+
+[JsonConverter(typeof(JsonStringEnumConverter))]
+public enum GenreSortBy
+{
+    Name
 }
 public record class UpdateGenreDto
 {

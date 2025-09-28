@@ -1,12 +1,15 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using ShowTracker.Api.Dtos;
+using ShowTracker.Api.Helpers;
 using ShowTracker.Api.Services;
+
+namespace ShowTracker.Api.Controllers;
 
 [ApiController]
 [Route("api/seasons/{seasonId}/episodes")]
 [Authorize]
-public class EpisodesController : ControllerBase
+public class EpisodesController : ExportableControllerBase
 {
     private readonly IShowEpisodesService _episodeService;
 
@@ -16,15 +19,15 @@ public class EpisodesController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<List<EpisodeDto>>> GetEpisodes(
+    [ProducesResponseType(typeof(IEnumerable<EpisodeDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(FileContentResult), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetEpisodes(
         int seasonId,
-        [FromQuery] string? sortBy,
-        [FromQuery] bool sortAsc = true,
-        [FromQuery] int page = 1,
-        [FromQuery] int pageSize = 10)
+        [FromQuery] QueryParameters<EpisodeSortBy> parameters)
     {
-        var episodes = await _episodeService.GetEpisodesForSeasonAsync(seasonId, sortBy, sortAsc, page, pageSize);
-        return Ok(episodes);
+        var episodes = await _episodeService.GetEpisodesForSeasonAsync(seasonId, parameters);
+
+        return CreateExportOrOkResult(episodes, parameters.Format, $"Episodes for Season ID: {seasonId}", $"season-{seasonId}-episodes");
     }
 
     [HttpGet("{episodeId}")]

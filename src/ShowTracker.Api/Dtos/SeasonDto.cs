@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace ShowTracker.Api.Dtos;
 
 public record class SeasonDto
@@ -19,4 +21,11 @@ public record class UpdateSeasonDto
 {
     public required int SeasonNumber { get; set; }
     public required DateOnly ReleaseDate { get; set; }
+}
+
+[JsonConverter(typeof(JsonStringEnumConverter))]
+public enum SeasonSortBy
+{
+    SeasonNumber,
+    ReleaseDate
 }

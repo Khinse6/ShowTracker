@@ -1,12 +1,13 @@
 using Microsoft.AspNetCore.Identity;
-using Microsoft.Extensions.Configuration;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using ShowTracker.Api.Data;
 using ShowTracker.Api.Entities;
+using ShowTracker.Api.Settings;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography;
-using System.Text;
 
 namespace ShowTracker.Api.Services;
 
@@ -18,24 +19,25 @@ public interface IAuthService
     Task<(string accessToken, string refreshToken)?> LoginAsync(string email, string password);
     Task<(RefreshResultStatus status, string? accessToken, string? refreshToken)> RefreshTokenAsync(string token);
     Task LogoutAsync(string refreshToken);
+    string GenerateAccessToken(User user);
 }
 
 public class AuthService : IAuthService
 {
     private readonly UserManager<User> _userManager;
     private readonly SignInManager<User> _signInManager;
-    private readonly IConfiguration _config;
+    private readonly JwtSettings _jwtSettings;
     private readonly ShowStoreContext _context;
 
     public AuthService(
         UserManager<User> userManager,
         SignInManager<User> signInManager,
-        IConfiguration config,
+        IOptions<JwtSettings> jwtSettings,
         ShowStoreContext context)
     {
         _userManager = userManager;
         _signInManager = signInManager;
-        _config = config;
+        _jwtSettings = jwtSettings.Value;
         _context = context;
     }
 
@@ -72,7 +74,7 @@ public class AuthService : IAuthService
         refreshToken.UserId = user.Id;
 
         // Save refresh token in DB
-        user.RefreshTokens.Add(refreshToken);
+        _context.RefreshTokens.Add(refreshToken);
         await _context.SaveChangesAsync();
 
         return (accessToken, refreshToken.Token);
@@ -86,16 +88,10 @@ public class AuthService : IAuthService
             return (RefreshResultStatus.Invalid, null, null);
         }
 
-        var user = await _userManager.FindByIdAsync(refreshToken.UserId);
-        if (user == null)
-        {
-            return (RefreshResultStatus.Invalid, null, null);
-        }
-
         // Compromised reuse detection
         if (refreshToken.Revoked != null && refreshToken.ReplacedByToken != null)
         {
-            RevokeAllUserRefreshTokens(user.Id);
+            RevokeAllUserRefreshTokens(refreshToken.UserId);
             await _context.SaveChangesAsync();
             return (RefreshResultStatus.Reused, null, null);
         }
@@ -107,13 +103,19 @@ public class AuthService : IAuthService
         }
 
         // Normal refresh flow
+        var user = await _userManager.FindByIdAsync(refreshToken.UserId);
+        if (user == null)
+        {
+            return (RefreshResultStatus.Invalid, null, null);
+        }
+
         refreshToken.Revoked = DateTime.UtcNow;
 
         var newRefreshToken = GenerateRefreshToken();
         newRefreshToken.UserId = user.Id;
         refreshToken.ReplacedByToken = newRefreshToken.Token;
 
-        user.RefreshTokens.Add(newRefreshToken);
+        _context.RefreshTokens.Add(newRefreshToken);
         await _context.SaveChangesAsync();
 
         var newAccessToken = GenerateAccessToken(user);
@@ -141,7 +143,7 @@ public class AuthService : IAuthService
         }
     }
 
-    private string GenerateAccessToken(User user)
+    public string GenerateAccessToken(User user)
     {
         var userRoles = _userManager.GetRolesAsync(user).Result;
 
@@ -157,12 +159,12 @@ public class AuthService : IAuthService
             claims.Add(new Claim(ClaimTypes.Role, role));
         }
 
-        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_config["Jwt:Key"]!));
+        var key = new SymmetricSecurityKey(System.Text.Encoding.UTF8.GetBytes(_jwtSettings.Key));
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
         var token = new JwtSecurityToken(
-            issuer: _config["Jwt:Issuer"],
-            audience: _config["Jwt:Audience"],
+            issuer: _jwtSettings.Issuer,
+            audience: _jwtSettings.Audience,
             claims: claims,
             expires: DateTime.UtcNow.AddMinutes(15),
             signingCredentials: creds

@@ -2,13 +2,13 @@ using Microsoft.EntityFrameworkCore;
 using ShowTracker.Api.Data;
 using ShowTracker.Api.Dtos;
 using ShowTracker.Api.Mappings;
-using System.Security.Claims;
+
 
 namespace ShowTracker.Api.Services;
 
 public interface IRecommendationService
 {
-    Task<List<ShowSummaryDto>> GetRecommendationsForUserAsync(string userId, string? sortBy, bool sortAsc, int page, int pageSize);
+    Task<List<ShowSummaryDto>> GetRecommendationsForUserAsync(string userId, QueryParameters<ShowSortBy> parameters);
 }
 
 public class RecommendationService : IRecommendationService
@@ -20,7 +20,7 @@ public class RecommendationService : IRecommendationService
         _dbContext = dbContext;
     }
 
-    public async Task<List<ShowSummaryDto>> GetRecommendationsForUserAsync(string userId, string? sortBy, bool sortAsc, int page, int pageSize)
+    public async Task<List<ShowSummaryDto>> GetRecommendationsForUserAsync(string userId, QueryParameters<ShowSortBy> parameters)
     {
         if (string.IsNullOrEmpty(userId))
         {
@@ -46,29 +46,36 @@ public class RecommendationService : IRecommendationService
             .Distinct()
             .ToListAsync();
 
-        // 3. Find other shows with those genres, excluding already favorited shows
+        // 3. Find other shows with those genres, calculate a recommendation score, and exclude already favorited shows.
+        // The score is a simple sum of matching genres and the total number of times a show has been favorited.
         var recommendationsQuery = _dbContext.Shows
             .Include(s => s.Genres)
             .Include(s => s.ShowType)
-            .Where(s => !favoriteShowIds.Contains(s.Id) && s.Genres.Any(g => favoriteGenres.Contains(g.Id)));
+            .Where(s => !favoriteShowIds.Contains(s.Id) && s.Genres.Any(g => favoriteGenres.Contains(g.Id)))
+            .Select(s => new
+            {
+                Show = s,
+                Score = s.Genres.Count(g => favoriteGenres.Contains(g.Id)) + s.FavoritedByUsers.Count()
+            });
 
-        // 4. Apply sorting
-        // We use a switch statement for security and control over what can be sorted.
-        recommendationsQuery = (sortBy?.ToLower(), sortAsc) switch
+        // 4. Apply sorting. The primary sort is now our new recommendation score.
+        // The user's requested sort is used as a secondary, tie-breaking sort.
+        var orderedQuery = recommendationsQuery.OrderByDescending(x => x.Score);
+
+        orderedQuery = (parameters.SortBy, parameters.SortOrder) switch
         {
-            ("title", true) => recommendationsQuery.OrderBy(s => s.Title),
-            ("title", false) => recommendationsQuery.OrderByDescending(s => s.Title),
-            ("releasedate", true) => recommendationsQuery.OrderBy(s => s.ReleaseDate),
-            ("releasedate", false) => recommendationsQuery.OrderByDescending(s => s.ReleaseDate),
-            // Default sort
-            _ => recommendationsQuery.OrderByDescending(s => s.ReleaseDate)
+            (ShowSortBy.Title, SortOrder.asc) => orderedQuery.ThenBy(x => x.Show.Title),
+            (ShowSortBy.Title, SortOrder.desc) => orderedQuery.ThenByDescending(x => x.Show.Title),
+            (ShowSortBy.ReleaseDate, SortOrder.asc) => orderedQuery.ThenBy(x => x.Show.ReleaseDate),
+            _ => orderedQuery.ThenByDescending(x => x.Show.ReleaseDate) // Default secondary sort
         };
 
         // 5. Paginate and execute the query
-        var skip = (page - 1) * pageSize;
-        var recommendations = await recommendationsQuery
+        var skip = (parameters.Page - 1) * parameters.PageSize;
+        var recommendations = await orderedQuery
             .Skip(skip)
-            .Take(pageSize)
+            .Take(parameters.PageSize)
+            .Select(x => x.Show) // Select only the Show entity for the final result
             .ToListAsync();
 
         return recommendations.Select(s => s.ToShowSummaryDto()).ToList();

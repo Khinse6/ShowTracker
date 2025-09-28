@@ -1,72 +1,24 @@
-using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.AspNetCore.Identity;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using QuestPDF.Infrastructure;
 using ShowTracker.Api.Data;
-using ShowTracker.Api.Entities;
-using ShowTracker.Api.Services;
+using ShowTracker.Api.Extensions;
 using ShowTracker.Api.Swagger;
-using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // -----------------------
-// Database
+// Library Configuration
 // -----------------------
-var connString = builder.Configuration.GetConnectionString("ShowStore");
-builder.Services.AddSqlite<ShowStoreContext>(connString);
-
-// -----------------------
-// Identity
-// -----------------------
-builder.Services.AddIdentity<User, IdentityRole>()
-    .AddEntityFrameworkStores<ShowStoreContext>()
-    .AddDefaultTokenProviders();
-
-// -----------------------
-// JWT Authentication
-// -----------------------
-builder.Services.AddAuthentication(options =>
-{
-    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-})
-.AddJwtBearer(options =>
-{
-    options.TokenValidationParameters = new TokenValidationParameters
-    {
-        ValidateIssuer = true,
-        ValidateAudience = true,
-        ValidateLifetime = true,
-        ValidateIssuerSigningKey = true,
-        ValidIssuer = builder.Configuration["Jwt:Issuer"],
-        ValidAudience = builder.Configuration["Jwt:Audience"],
-        IssuerSigningKey = new SymmetricSecurityKey(
-            Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]!)),
-        ClockSkew = TimeSpan.Zero
-    };
-});
-
+QuestPDF.Settings.License = LicenseType.Community;
 // -----------------------
 // Controllers
 // -----------------------
 builder.Services.AddControllers();
 
-// -----------------------
-// Services
-// -----------------------
-builder.Services.AddScoped<IAuthService, AuthService>();
-builder.Services.AddScoped<IShowService, ShowService>();
-builder.Services.AddScoped<IGenreService, GenreService>();
-builder.Services.AddScoped<IActorService, ActorService>();
-builder.Services.AddScoped<IFavoritesService, FavoritesService>();
-builder.Services.AddScoped<IShowTypeService, ShowTypeService>();
-builder.Services.AddScoped<IShowGenresService, ShowGenresService>();
-builder.Services.AddScoped<IShowSeasonsService, ShowSeasonsService>();
-builder.Services.AddScoped<IRecommendationService, RecommendationService>();
-builder.Services.AddScoped<IEmailService, ConsoleEmailService>();
-builder.Services.AddScoped<IShowEpisodesService, ShowEpisodesService>();
+builder.Services
+    .AddDatabaseServices(builder.Configuration)
+    .AddIdentityAndAuthentication(builder.Configuration)
+    .AddApplicationServices();
 
 // -----------------------
 // Swagger / OpenAPI
@@ -95,11 +47,6 @@ builder.Services.AddSwaggerGen(c =>
     // Use the operation filter to show locks only on [Authorize] endpoints
     c.OperationFilter<AuthorizeCheckOperationFilter>();
 });
-
-// -----------------------
-// Background Services
-// -----------------------
-builder.Services.AddHostedService<RecommendationEmailJob>();
 
 // -----------------------
 // Build App

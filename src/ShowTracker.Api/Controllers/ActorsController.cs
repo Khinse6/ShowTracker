@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using ShowTracker.Api.Dtos;
+using ShowTracker.Api.Helpers;
 using ShowTracker.Api.Services;
 
 namespace ShowTracker.Api.Controllers;
@@ -8,7 +9,7 @@ namespace ShowTracker.Api.Controllers;
 [ApiController]
 [Route("api/actors")]
 [Authorize]
-public class ActorsController : ControllerBase
+public class ActorsController : ExportableControllerBase
 {
     private readonly IActorService _actorService;
 
@@ -18,14 +19,14 @@ public class ActorsController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<List<ActorSummaryDto>>> GetAll(
-        [FromQuery] string? sortBy,
-        [FromQuery] bool descending = false,
-        [FromQuery] int page = 1,
-        [FromQuery] int pageSize = 10)
+    [ProducesResponseType(typeof(IEnumerable<ActorSummaryDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(FileContentResult), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetAll(
+        [FromQuery] QueryParameters<ActorSortBy> parameters)
     {
-        var actors = await _actorService.GetAllActorsAsync(sortBy, descending, page, pageSize);
-        return Ok(actors);
+        var actors = await _actorService.GetAllActorsAsync(parameters);
+
+        return CreateExportOrOkResult(actors, parameters.Format, "Actors Report", "actors");
     }
 
     [HttpGet("{id}")]

@@ -7,7 +7,7 @@ namespace ShowTracker.Api.Services;
 
 public interface IFavoritesService
 {
-    Task<List<ShowSummaryDto>> GetFavoritesAsync(string userId, string? sortBy, bool sortAsc, int page, int pageSize);
+    Task<List<ShowSummaryDto>> GetFavoritesAsync(string userId, QueryParameters<ShowSortBy> parameters);
     Task AddFavoriteAsync(string userId, int showId);
     Task RemoveFavoriteAsync(string userId, int showId);
 }
@@ -21,7 +21,7 @@ public class FavoritesService : IFavoritesService
         _dbContext = dbContext;
     }
 
-    public async Task<List<ShowSummaryDto>> GetFavoritesAsync(string userId, string? sortBy, bool sortAsc, int page, int pageSize)
+    public async Task<List<ShowSummaryDto>> GetFavoritesAsync(string userId, QueryParameters<ShowSortBy> parameters)
     {
         var userExists = await _dbContext.Users.AnyAsync(u => u.Id == userId);
         if (!userExists)
@@ -36,20 +36,20 @@ public class FavoritesService : IFavoritesService
             .Where(s => s.FavoritedByUsers.Any(u => u.Id == userId));
 
         // Apply sorting
-        favoritesQuery = (sortBy?.ToLower(), sortAsc) switch
+        favoritesQuery = (parameters.SortBy, parameters.SortOrder) switch
         {
-            ("title", true) => favoritesQuery.OrderBy(s => s.Title),
-            ("title", false) => favoritesQuery.OrderByDescending(s => s.Title),
-            ("releasedate", true) => favoritesQuery.OrderBy(s => s.ReleaseDate),
-            ("releasedate", false) => favoritesQuery.OrderByDescending(s => s.ReleaseDate),
+            (ShowSortBy.Title, SortOrder.asc) => favoritesQuery.OrderBy(s => s.Title),
+            (ShowSortBy.Title, SortOrder.desc) => favoritesQuery.OrderByDescending(s => s.Title),
+            (ShowSortBy.ReleaseDate, SortOrder.asc) => favoritesQuery.OrderBy(s => s.ReleaseDate),
+            (ShowSortBy.ReleaseDate, SortOrder.desc) => favoritesQuery.OrderByDescending(s => s.ReleaseDate),
             _ => favoritesQuery.OrderBy(s => s.Title) // Default sort for favorites
         };
 
         // Apply pagination and execute
-        var skip = (page - 1) * pageSize;
+        var skip = (parameters.Page - 1) * parameters.PageSize;
         var favoriteShows = await favoritesQuery
             .Skip(skip)
-            .Take(pageSize)
+            .Take(parameters.PageSize)
             .ToListAsync();
 
         return favoriteShows
