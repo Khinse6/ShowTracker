@@ -41,16 +41,16 @@ public class RecommendationJobService : IRecommendationJobService
                 break;
             }
 
-            var recommendations = await recommendationService.GetRecommendationsForUserAsync(user.Id, new QueryParameters<ShowSortBy> { Page = 1, PageSize = 5, SortBy = ShowSortBy.ReleaseDate, SortOrder = SortOrder.desc });
+            var paginatedRecommendations = await recommendationService.GetRecommendationsForUserAsync(user.Id, new QueryParameters<ShowSortBy> { Page = 1, PageSize = 5, SortBy = ShowSortBy.ReleaseDate, SortOrder = SortOrder.desc });
 
-            if (recommendations.Any())
+            if (paginatedRecommendations.Items.Any())
             {
                 var subject = "Your Weekly TV Show Recommendations!";
                 var body = new StringBuilder();
                 body.AppendLine($"Hi {user.DisplayName},");
                 body.AppendLine("Here are some shows you might like based on your favorites:");
                 body.AppendLine();
-                foreach (var show in recommendations)
+                foreach (var show in paginatedRecommendations.Items)
                 {
                     body.AppendLine($"- {show.Title} ({show.ReleaseDate.Year})");
                 }

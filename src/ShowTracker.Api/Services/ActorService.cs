@@ -21,36 +21,33 @@ public class ActorService : IActorService
         _cache = cache;
     }
 
-    public async Task<List<ActorSummaryDto>> GetAllActorsAsync(QueryParameters<ActorSortBy> parameters)
+    public async Task<PaginatedResponseDto<ActorSummaryDto>> GetAllActorsAsync(QueryParameters<ActorSortBy> parameters)
     {
         var cacheKey = $"actors-all-{parameters.GetCacheKey()}";
 
-        var cachedActors = await _cache.GetOrCreateAsync(cacheKey, async entry =>
+        var paginatedResponse = await _cache.GetOrCreateAsync(cacheKey, async entry =>
         {
             var cts = GetOrCreateCancellationTokenSource();
             entry.AddExpirationToken(new CancellationChangeToken(cts.Token));
             entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(1);
 
-            var actorsQuery = _dbContext.Actors.AsQueryable();
+            var actorsQuery = _dbContext.Actors.AsNoTracking().AsQueryable();
 
             actorsQuery = (parameters.SortBy, parameters.SortOrder) switch
             {
                 (ActorSortBy.Name, SortOrder.desc) => actorsQuery.OrderByDescending(a => a.Name),
-                (ActorSortBy.Name, SortOrder.asc) => actorsQuery.OrderBy(a => a.Name),
                 _ => actorsQuery.OrderBy(a => a.Name)
             };
 
-            var skip = (parameters.Page - 1) * parameters.PageSize;
-            var actors = await actorsQuery
-                .Include(a => a.Shows)
-                .Skip(skip)
-                .Take(parameters.PageSize)
-                .ToListAsync();
+            if (parameters.Format != ExportFormat.json)
+            {
+                return await actorsQuery.ToExportResponseAsync(actors => actors.Select(a => a.ToSummaryDto()).ToList());
+            }
 
-            return actors.Select(actor => actor.ToSummaryDto()).ToList();
+            return await actorsQuery.ToPaginatedDtoAsync(parameters, actors => actors.Select(actor => actor.ToSummaryDto()).ToList());
         });
 
-        return cachedActors ?? new List<ActorSummaryDto>();
+        return paginatedResponse ?? new PaginatedResponseDto<ActorSummaryDto>();
     }
 
     public async Task<ActorDetailsDto> GetActorByIdAsync(int id)

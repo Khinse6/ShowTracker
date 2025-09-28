@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Primitives;
 using ShowTracker.Api.Data;
 using ShowTracker.Api.Interfaces;
 using ShowTracker.Api.Dtos;
@@ -18,24 +19,41 @@ public class ShowActorService : IShowActorService
         _cache = cache;
     }
 
-    public async Task<IEnumerable<ActorSummaryDto>> GetActorsByShowIdAsync(int showId)
+    private string ShowActorsTokenKey(int showId) => $"show-actors-cts-{showId}";
+
+    public async Task<PaginatedResponseDto<ActorSummaryDto>> GetActorsByShowIdAsync(int showId, QueryParameters<ActorSortBy> parameters)
     {
-        var show = await _context.Shows
-            .AsNoTracking()
-            .Include(s => s.Actors)
-            .FirstOrDefaultAsync(s => s.Id == showId);
-
-        if (show == null)
+        var cacheKey = $"show-actors-{showId}-{parameters.GetCacheKey()}";
+        var paginatedResponse = await _cache.GetOrCreateAsync(cacheKey, async entry =>
         {
-            throw new KeyNotFoundException("Show not found.");
-        }
+            var cts = GetOrCreateCancellationTokenSource(showId);
+            entry.AddExpirationToken(new CancellationChangeToken(cts.Token));
+            entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(15);
 
-        return show.Actors
-            .Select(a => a.ToSummaryDto()).ToList();
+            var actorsQuery = _context.Actors
+                .AsNoTracking()
+                .Where(a => a.Shows.Any(s => s.Id == showId));
+
+            actorsQuery = (parameters.SortBy, parameters.SortOrder) switch
+            {
+                (ActorSortBy.Name, SortOrder.desc) => actorsQuery.OrderByDescending(a => a.Name),
+                _ => actorsQuery.OrderBy(a => a.Name)
+            };
+
+            if (parameters.Format != ExportFormat.json)
+            {
+                return await actorsQuery.ToExportResponseAsync(actors => actors.Select(a => a.ToSummaryDto()).ToList());
+            }
+
+            return await actorsQuery.ToPaginatedDtoAsync(parameters, actors => actors.Select(a => a.ToSummaryDto()).ToList());
+        });
+
+        return paginatedResponse ?? new PaginatedResponseDto<ActorSummaryDto>();
     }
 
     public async Task AddActorToShowAsync(int showId, int actorId)
     {
+        InvalidateCache(showId);
         var show = await _context.Shows
             .Include(s => s.Actors)
             .FirstOrDefaultAsync(s => s.Id == showId);
@@ -55,12 +73,12 @@ public class ShowActorService : IShowActorService
         {
             show.Actors.Add(actor);
             await _context.SaveChangesAsync();
-            _cache.Remove("shows-all"); // Invalidate cache
         }
     }
 
     public async Task RemoveActorFromShowAsync(int showId, int actorId)
     {
+        InvalidateCache(showId);
         var show = await _context.Shows
             .Include(s => s.Actors)
             .FirstOrDefaultAsync(s => s.Id == showId);
@@ -71,14 +89,27 @@ public class ShowActorService : IShowActorService
         }
 
         var actor = show.Actors.FirstOrDefault(a => a.Id == actorId);
-        if (actor == null)
+        if (actor != null)
         {
-            // Actor is not associated with the show, so we can consider the operation successful.
-            return;
+            show.Actors.Remove(actor);
+            await _context.SaveChangesAsync();
         }
+    }
 
-        show.Actors.Remove(actor);
-        await _context.SaveChangesAsync();
-        _cache.Remove("shows-all"); // Invalidate cache
+    private CancellationTokenSource GetOrCreateCancellationTokenSource(int showId)
+    {
+        var cts = _cache.GetOrCreate(ShowActorsTokenKey(showId), entry =>
+        {
+            entry.SetPriority(CacheItemPriority.NeverRemove);
+            return new CancellationTokenSource();
+        });
+
+        return cts ?? throw new InvalidOperationException("Could not create or retrieve CancellationTokenSource from cache.");
+    }
+
+    private void InvalidateCache(int showId)
+    {
+        GetOrCreateCancellationTokenSource(showId).Cancel();
+        _cache.Remove(ShowActorsTokenKey(showId));
     }
 }

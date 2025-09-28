@@ -4,6 +4,7 @@ using Microsoft.Extensions.Primitives;
 using ShowTracker.Api.Data;
 using ShowTracker.Api.Dtos;
 using ShowTracker.Api.Entities;
+using ShowTracker.Api.Mappings;
 using ShowTracker.Api.Interfaces;
 
 namespace ShowTracker.Api.Services;
@@ -20,34 +21,33 @@ public class ShowTypeService : IShowTypeService
         _cache = cache;
     }
 
-    public async Task<List<ShowTypeDto>> GetAllAsync(QueryParameters<ShowTypeSortBy> parameters)
+    public async Task<PaginatedResponseDto<ShowTypeDto>> GetAllAsync(QueryParameters<ShowTypeSortBy> parameters)
     {
         var cacheKey = $"showtypes-all-{parameters.GetCacheKey()}";
-        var cachedShowTypes = await _cache.GetOrCreateAsync(cacheKey, async entry =>
+        var paginatedResponse = await _cache.GetOrCreateAsync(cacheKey, async entry =>
         {
             var cts = GetOrCreateCancellationTokenSource();
             entry.AddExpirationToken(new CancellationChangeToken(cts.Token));
             entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromDays(1);
 
-            var query = _context.ShowTypes.AsQueryable();
+            var query = _context.ShowTypes.AsNoTracking().AsQueryable();
 
             query = (parameters.SortBy, parameters.SortOrder) switch
             {
-                (ShowTypeSortBy.Name, SortOrder.asc) => query.OrderBy(t => t.Name),
                 (ShowTypeSortBy.Name, SortOrder.desc) => query.OrderByDescending(t => t.Name),
                 _ => query.OrderBy(t => t.Name)
             };
 
-            var skip = (parameters.Page - 1) * parameters.PageSize;
-            return await query
-                .Skip(skip)
-                .Take(parameters.PageSize)
-                .Select(t => new ShowTypeDto { Id = t.Id, Name = t.Name })
-                .AsNoTracking()
-                .ToListAsync();
+            if (parameters.Format != ExportFormat.json)
+            {
+                return await query.ToExportResponseAsync(showTypes => showTypes.Select(st => st.ToDto()).ToList());
+            }
+
+            return await query.ToPaginatedDtoAsync(parameters,
+                showTypes => showTypes.Select(st => st.ToDto()).ToList());
         });
 
-        return cachedShowTypes ?? new List<ShowTypeDto>();
+        return paginatedResponse ?? new PaginatedResponseDto<ShowTypeDto>();
     }
 
     public async Task<ShowTypeDto?> GetByIdAsync(int id)
@@ -60,26 +60,26 @@ public class ShowTypeService : IShowTypeService
             entry.SlidingExpiration = TimeSpan.FromHours(1);
             var type = await _context.ShowTypes.FindAsync(id);
             if (type == null) { return null; }
-            return new ShowTypeDto { Id = type.Id, Name = type.Name };
+            return type.ToDto();
         });
     }
 
     public async Task<ShowTypeDto> CreateAsync(CreateShowTypeDto dto)
     {
         InvalidateCache();
-        var entity = new ShowType { Name = dto.Name };
+        var entity = dto.ToEntity();
         _context.ShowTypes.Add(entity);
         await _context.SaveChangesAsync();
-        return new ShowTypeDto { Id = entity.Id, Name = entity.Name };
+        return entity.ToDto();
     }
 
     public async Task<List<ShowTypeDto>> BulkCreateAsync(List<CreateShowTypeDto> dtos)
     {
         InvalidateCache();
-        var entities = dtos.Select(d => new ShowType { Name = d.Name }).ToList();
+        var entities = dtos.Select(d => d.ToEntity()).ToList();
         _context.ShowTypes.AddRange(entities);
         await _context.SaveChangesAsync();
-        return entities.Select(e => new ShowTypeDto { Id = e.Id, Name = e.Name }).ToList();
+        return entities.Select(e => e.ToDto()).ToList();
     }
 
     public async Task UpdateAsync(int id, UpdateShowTypeDto dto)
@@ -88,7 +88,7 @@ public class ShowTypeService : IShowTypeService
         _cache.Remove($"showtype-{id}");
         var entity = await _context.ShowTypes.FindAsync(id);
         if (entity == null) { throw new KeyNotFoundException("Show type not found"); }
-        entity.Name = dto.Name;
+        dto.UpdateEntity(entity);
         await _context.SaveChangesAsync();
     }
 

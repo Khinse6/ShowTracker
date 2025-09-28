@@ -4,7 +4,7 @@ namespace ShowTracker.Api.Interfaces;
 
 public interface IShowSeasonsService
 {
-    Task<List<SeasonDto>> GetSeasonsForShowAsync(int showId, QueryParameters<SeasonSortBy> parameters);
+    Task<PaginatedResponseDto<SeasonDto>> GetSeasonsForShowAsync(int showId, QueryParameters<SeasonSortBy> parameters);
     Task<SeasonDto?> GetSeasonAsync(int showId, int seasonId);
     Task<SeasonDto> CreateSeasonAsync(CreateSeasonDto dto);
     Task<List<SeasonDto>> CreateSeasonsAsync(int showId, List<CreateSeasonDto> dtos);

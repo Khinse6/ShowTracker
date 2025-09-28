@@ -28,14 +28,16 @@ public class UsersController : ExportableControllerBase
     /// <param name="parameters">Query parameters for sorting, pagination, and export format.</param>
     /// <response code="200">Returns a list of the user's favorite shows or a file if an export format is specified.</response>
     [HttpGet("me/favorites")]
-    [ProducesResponseType(typeof(IEnumerable<ShowSummaryDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(PaginatedResponseDto<ShowSummaryDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(FileContentResult), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetMyFavorites(
         [FromQuery] QueryParameters<ShowSortBy> parameters)
     {
-        var favorites = await _favoritesService.GetFavoritesAsync(GetUserId(), parameters);
+        var paginatedFavorites = await _favoritesService.GetFavoritesAsync(GetUserId(), parameters);
 
-        return CreateExportOrOkResult(favorites, parameters.Format, "My Favorites", "my-favorites");
+        return parameters.Format == ExportFormat.json
+            ? Ok(paginatedFavorites)
+            : CreateExportOrOkResult(paginatedFavorites.Items, parameters.Format, "My Favorites", "my-favorites");
     }
 
     /// <summary>
@@ -88,13 +90,15 @@ public class UsersController : ExportableControllerBase
     /// <param name="parameters">Query parameters for sorting, pagination, and export format.</param>
     /// <response code="200">Returns a list of recommended shows or a file if an export format is specified.</response>
     [HttpGet("me/recommendations")]
-    [ProducesResponseType(typeof(IEnumerable<ShowSummaryDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(PaginatedResponseDto<ShowSummaryDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(FileContentResult), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetMyRecommendations(
         [FromQuery] QueryParameters<ShowSortBy> parameters)
     {
-        var recommendations = await _recommendationService.GetRecommendationsForUserAsync(GetUserId(), parameters);
+        var paginatedRecommendations = await _recommendationService.GetRecommendationsForUserAsync(GetUserId(), parameters);
 
-        return CreateExportOrOkResult(recommendations, parameters.Format, "My Recommendations", "my-recommendations");
+        return parameters.Format == ExportFormat.json
+            ? Ok(paginatedRecommendations)
+            : CreateExportOrOkResult(paginatedRecommendations.Items, parameters.Format, "My Recommendations", "my-recommendations");
     }
 }

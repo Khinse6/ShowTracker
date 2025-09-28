@@ -8,7 +8,7 @@ namespace ShowTracker.Api.Controllers;
 [ApiController]
 [Route("api/shows/{showId}/actors")]
 [Authorize]
-public class ShowActorsController : ControllerBase
+public class ShowActorsController : ExportableControllerBase
 {
     private readonly IShowActorService _showActorService;
 
@@ -21,15 +21,22 @@ public class ShowActorsController : ControllerBase
     /// Gets all actors for a specific show.
     /// </summary>
     /// <param name="showId">The ID of the show.</param>
+    /// <param name="parameters">Query parameters for sorting, pagination, and export format.</param>
     /// <response code="200">Returns the list of actors for the show.</response>
     /// <response code="404">If the show with the specified ID is not found.</response>
     [HttpGet]
-    [ProducesResponseType(typeof(IEnumerable<ActorSummaryDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(PaginatedResponseDto<ActorSummaryDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(FileContentResult), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> GetActorsForShow(int showId)
+    public async Task<IActionResult> GetActorsForShow(
+        int showId,
+        [FromQuery] QueryParameters<ActorSortBy> parameters)
     {
-        var actors = await _showActorService.GetActorsByShowIdAsync(showId);
-        return Ok(actors);
+        var paginatedActors = await _showActorService.GetActorsByShowIdAsync(showId, parameters);
+
+        return parameters.Format == ExportFormat.json
+            ? Ok(paginatedActors)
+            : CreateExportOrOkResult(paginatedActors.Items, parameters.Format, $"Actors for Show ID: {showId}", $"show-{showId}-actors");
     }
 
     /// <summary>
@@ -45,8 +52,15 @@ public class ShowActorsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> AddActorToShow(int showId, int actorId)
     {
-        await _showActorService.AddActorToShowAsync(showId, actorId);
-        return NoContent();
+        try
+        {
+            await _showActorService.AddActorToShowAsync(showId, actorId);
+            return NoContent();
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
     }
 
     /// <summary>
@@ -62,7 +76,14 @@ public class ShowActorsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> RemoveActorFromShow(int showId, int actorId)
     {
-        await _showActorService.RemoveActorFromShowAsync(showId, actorId);
-        return NoContent();
+        try
+        {
+            await _showActorService.RemoveActorFromShowAsync(showId, actorId);
+            return NoContent();
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
     }
 }

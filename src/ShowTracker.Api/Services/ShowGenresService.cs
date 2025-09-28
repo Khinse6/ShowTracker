@@ -3,6 +3,7 @@ using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Primitives;
 using ShowTracker.Api.Data;
 using ShowTracker.Api.Dtos;
+using ShowTracker.Api.Mappings;
 
 using ShowTracker.Api.Interfaces;
 namespace ShowTracker.Api.Services;
@@ -20,11 +21,11 @@ public class ShowGenresService : IShowGenresService
 
     private string ShowGenresTokenKey(int showId) => $"show-genres-cts-{showId}";
 
-    public async Task<List<string>> GetGenresForShowAsync(int showId, QueryParameters<GenreSortBy> parameters)
+    public async Task<PaginatedResponseDto<GenreDto>> GetGenresForShowAsync(int showId, QueryParameters<GenreSortBy> parameters)
     {
         var cacheKey = $"show-genres-{showId}-{parameters.GetCacheKey()}";
 
-        var cachedGenres = await _cache.GetOrCreateAsync(cacheKey, async entry =>
+        var paginatedResponse = await _cache.GetOrCreateAsync(cacheKey, async entry =>
         {
             var cts = GetOrCreateCancellationTokenSource(showId);
             entry.AddExpirationToken(new CancellationChangeToken(cts.Token));
@@ -37,6 +38,7 @@ public class ShowGenresService : IShowGenresService
             }
 
             var genresQuery = _dbContext.Genres
+                .AsNoTracking()
                 .Where(g => g.Shows.Any(s => s.Id == showId));
 
             genresQuery = (parameters.SortBy, parameters.SortOrder) switch
@@ -46,13 +48,15 @@ public class ShowGenresService : IShowGenresService
                 _ => genresQuery.OrderBy(g => g.Name)
             };
 
-            var skip = (parameters.Page - 1) * parameters.PageSize;
-            return await genresQuery.Skip(skip).Take(parameters.PageSize)
-                .Select(g => g.Name)
-                .ToListAsync();
+            if (parameters.Format != ExportFormat.json)
+            {
+                return await genresQuery.ToExportResponseAsync(genres => genres.Select(g => g.ToDto()).ToList());
+            }
+
+            return await genresQuery.ToPaginatedDtoAsync(parameters, genres => genres.Select(g => g.ToDto()).ToList());
         });
 
-        return cachedGenres ?? new List<string>();
+        return paginatedResponse ?? new PaginatedResponseDto<GenreDto>();
     }
 
     public async Task AddGenreToShowAsync(int showId, int genreId)

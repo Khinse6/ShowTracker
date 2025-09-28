@@ -22,16 +22,17 @@ public class ShowEpisodesService : IShowEpisodesService
 
     private string SeasonEpisodesTokenKey(int seasonId) => $"season-episodes-cts-{seasonId}";
 
-    public async Task<List<EpisodeDto>> GetEpisodesForSeasonAsync(int seasonId, QueryParameters<EpisodeSortBy> parameters)
+    public async Task<PaginatedResponseDto<EpisodeDto>> GetEpisodesForSeasonAsync(int seasonId, QueryParameters<EpisodeSortBy> parameters)
     {
         var cacheKey = $"season-episodes-{seasonId}-{parameters.GetCacheKey()}";
-        var cachedEpisodes = await _cache.GetOrCreateAsync(cacheKey, async entry =>
+        var paginatedResponse = await _cache.GetOrCreateAsync(cacheKey, async entry =>
         {
             var cts = GetOrCreateCancellationTokenSource(seasonId);
             entry.AddExpirationToken(new CancellationChangeToken(cts.Token));
             entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(15);
 
             var episodesQuery = _context.Episodes
+                .AsNoTracking()
                 .Where(e => e.SeasonId == seasonId)
                 .AsQueryable();
 
@@ -44,21 +45,20 @@ public class ShowEpisodesService : IShowEpisodesService
                 _ => episodesQuery.OrderBy(e => e.EpisodeNumber)
             };
 
-            var skip = (parameters.Page - 1) * parameters.PageSize;
-            var episodes = await episodesQuery
-                .Skip(skip)
-                .Take(parameters.PageSize)
-                .ToListAsync();
+            if (parameters.Format != ExportFormat.json)
+            {
+                return await episodesQuery.ToExportResponseAsync(episodes => episodes.Select(e => e.ToDto()).ToList());
+            }
 
-            return episodes.Select(e => e.ToDto()).ToList();
+            return await episodesQuery.ToPaginatedDtoAsync(parameters, episodes => episodes.Select(e => e.ToDto()).ToList());
         });
 
-        return cachedEpisodes ?? new List<EpisodeDto>();
+        return paginatedResponse ?? new PaginatedResponseDto<EpisodeDto>();
     }
 
     public async Task<EpisodeDto?> GetEpisodeAsync(int seasonId, int episodeId)
     {
-        var cacheKey = $"season-episode-{seasonId}-{episodeId}";
+        var cacheKey = $"season-{seasonId}-episode-{episodeId}";
         return await _cache.GetOrCreateAsync(cacheKey, async entry =>
         {
             var cts = GetOrCreateCancellationTokenSource(seasonId);
@@ -76,15 +76,7 @@ public class ShowEpisodesService : IShowEpisodesService
         var season = await _context.Seasons.FindAsync(seasonId);
         if (season == null) { throw new KeyNotFoundException("Season not found"); }
 
-        var episode = new Episode
-        {
-            Title = dto.Title,
-            Description = dto.Description,
-            EpisodeNumber = dto.EpisodeNumber,
-            ReleaseDate = dto.ReleaseDate,
-            SeasonId = seasonId
-        };
-
+        var episode = dto.ToEntity(); // This was already correct, but good to confirm.
         _context.Episodes.Add(episode);
         await _context.SaveChangesAsync();
         return episode.ToDto();
@@ -96,15 +88,7 @@ public class ShowEpisodesService : IShowEpisodesService
         var season = await _context.Seasons.FindAsync(seasonId);
         if (season == null) { throw new KeyNotFoundException("Season not found"); }
 
-        var episodes = dtos.Select(dto => new Episode
-        {
-            Title = dto.Title,
-            Description = dto.Description,
-            EpisodeNumber = dto.EpisodeNumber,
-            ReleaseDate = dto.ReleaseDate,
-            SeasonId = seasonId
-        }).ToList();
-
+        var episodes = dtos.Select(dto => dto.ToEntity()).ToList();
         using var transaction = await _context.Database.BeginTransactionAsync();
         try
         {
@@ -125,25 +109,21 @@ public class ShowEpisodesService : IShowEpisodesService
     public async Task UpdateEpisodeAsync(int seasonId, int episodeId, UpdateEpisodeDto dto)
     {
         InvalidateCache(seasonId);
-        _cache.Remove($"season-episode-{seasonId}-{episodeId}");
+        _cache.Remove($"season-{seasonId}-episode-{episodeId}");
 
         var episode = await _context.Episodes
             .FirstOrDefaultAsync(e => e.Id == episodeId && e.SeasonId == seasonId);
 
         if (episode == null) { throw new KeyNotFoundException("Episode not found"); }
 
-        episode.Title = dto.Title;
-        episode.Description = dto.Description;
-        episode.EpisodeNumber = dto.EpisodeNumber;
-        episode.ReleaseDate = dto.ReleaseDate;
-
+        dto.UpdateEntity(episode);
         await _context.SaveChangesAsync();
     }
 
     public async Task DeleteEpisodeAsync(int seasonId, int episodeId)
     {
         InvalidateCache(seasonId);
-        _cache.Remove($"season-episode-{seasonId}-{episodeId}");
+        _cache.Remove($"season-{seasonId}-episode-{episodeId}");
 
         var episode = await _context.Episodes
             .FirstOrDefaultAsync(e => e.Id == episodeId && e.SeasonId == seasonId);

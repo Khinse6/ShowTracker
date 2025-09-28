@@ -25,15 +25,17 @@ public class ShowGenresController : ExportableControllerBase
     /// <response code="200">Returns the list of genres for the show.</response>
     /// <response code="404">If the show with the specified ID is not found.</response>
     [HttpGet]
-    [ProducesResponseType(typeof(IEnumerable<string>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(PaginatedResponseDto<GenreDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(FileContentResult), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetShowGenres(int showId, [FromQuery] QueryParameters<GenreSortBy> parameters)
     {
         try
         {
-            var genres = await _showGenresService.GetGenresForShowAsync(showId, parameters);
+            var paginatedGenres = await _showGenresService.GetGenresForShowAsync(showId, parameters);
 
-            return CreateExportOrOkResult(genres, parameters.Format, $"Genres for Show ID: {showId}", $"show-{showId}-genres");
+            return parameters.Format == ExportFormat.json
+                ? Ok(paginatedGenres)
+                : CreateExportOrOkResult(paginatedGenres.Items, parameters.Format, $"Genres for Show ID: {showId}", $"show-{showId}-genres");
         }
         catch (KeyNotFoundException)
         {

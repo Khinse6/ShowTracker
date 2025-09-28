@@ -21,11 +21,11 @@ public class FavoritesService : IFavoritesService
 
     private string UserFavoritesTokenKey(string userId) => $"favorites-cts-{userId}";
 
-    public async Task<List<ShowSummaryDto>> GetFavoritesAsync(string userId, QueryParameters<ShowSortBy> parameters)
+    public async Task<PaginatedResponseDto<ShowSummaryDto>> GetFavoritesAsync(string userId, QueryParameters<ShowSortBy> parameters)
     {
         var cacheKey = $"favorites-{userId}-{parameters.GetCacheKey()}";
 
-        var cachedFavorites = await _cache.GetOrCreateAsync(cacheKey, async entry =>
+        var paginatedResponse = await _cache.GetOrCreateAsync(cacheKey, async entry =>
         {
             var cts = GetOrCreateCancellationTokenSource(userId);
             entry.AddExpirationToken(new CancellationChangeToken(cts.Token));
@@ -38,6 +38,7 @@ public class FavoritesService : IFavoritesService
             }
 
             var favoritesQuery = _dbContext.Shows
+                .AsNoTracking()
                 .Include(s => s.Genres)
                 .Include(s => s.ShowType)
                 .Where(s => s.FavoritedByUsers.Any(u => u.Id == userId));
@@ -51,18 +52,16 @@ public class FavoritesService : IFavoritesService
                 _ => favoritesQuery.OrderBy(s => s.Title)
             };
 
-            var skip = (parameters.Page - 1) * parameters.PageSize;
-            var favoriteShows = await favoritesQuery
-                .Skip(skip)
-                .Take(parameters.PageSize)
-                .ToListAsync();
+            if (parameters.Format != ExportFormat.json)
+            {
+                return await favoritesQuery.ToExportResponseAsync(shows => shows.Select(s => s.ToShowSummaryDto()).ToList());
+            }
 
-            return favoriteShows
-                .Select(s => s.ToShowSummaryDto())
-                .ToList();
+            return await favoritesQuery.ToPaginatedDtoAsync(parameters,
+                shows => shows.Select(s => s.ToShowSummaryDto()).ToList());
         });
 
-        return cachedFavorites ?? new List<ShowSummaryDto>();
+        return paginatedResponse ?? new PaginatedResponseDto<ShowSummaryDto>();
     }
 
     public async Task AddFavoriteAsync(string userId, int showId)

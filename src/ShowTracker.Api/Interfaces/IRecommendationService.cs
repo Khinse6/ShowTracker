@@ -4,5 +4,5 @@ namespace ShowTracker.Api.Interfaces;
 
 public interface IRecommendationService
 {
-    Task<List<ShowSummaryDto>> GetRecommendationsForUserAsync(string userId, QueryParameters<ShowSortBy> parameters);
+    Task<PaginatedResponseDto<ShowSummaryDto>> GetRecommendationsForUserAsync(string userId, QueryParameters<ShowSortBy> parameters);
 }

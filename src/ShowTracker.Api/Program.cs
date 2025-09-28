@@ -5,6 +5,8 @@ using ShowTracker.Api.Extensions;
 using ShowTracker.Api.Swagger;
 using System.Reflection;
 
+var MyAllowSpecificOrigins = "_myAllowSpecificOrigins";
+
 var builder = WebApplication.CreateBuilder(args);
 
 // -----------------------
@@ -16,6 +18,17 @@ QuestPDF.Settings.License = LicenseType.Community;
 // -----------------------
 builder.Services.AddControllers();
 builder.Services.AddMemoryCache();
+
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy(name: MyAllowSpecificOrigins,
+        policy =>
+        {
+            policy.WithOrigins("http://localhost:5173", "http://localhost:3000") // Vite/CRA default ports
+                .AllowAnyHeader()
+                .AllowAnyMethod();
+        });
+});
 
 builder.Services
     .AddDatabaseServices(builder.Configuration)
@@ -73,6 +86,9 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+// Enable CORS
+app.UseCors(MyAllowSpecificOrigins);
 
 // Enable authentication & authorization
 app.UseAuthentication();

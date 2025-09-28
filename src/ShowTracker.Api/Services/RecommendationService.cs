@@ -19,18 +19,18 @@ public class RecommendationService : IRecommendationService
         _cache = cache;
     }
 
-    public async Task<List<ShowSummaryDto>> GetRecommendationsForUserAsync(string userId, QueryParameters<ShowSortBy> parameters)
+    public async Task<PaginatedResponseDto<ShowSummaryDto>> GetRecommendationsForUserAsync(string userId, QueryParameters<ShowSortBy> parameters)
     {
         var cacheKey = $"recommendations-{userId}-{parameters.GetCacheKey()}";
 
-        var cachedRecommendations = await _cache.GetOrCreateAsync(cacheKey, async entry =>
+        var paginatedResponse = await _cache.GetOrCreateAsync(cacheKey, async entry =>
         {
             // Recommendations are expensive to generate, so cache for a reasonable time.
             entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(1);
 
             if (string.IsNullOrEmpty(userId))
             {
-                return new List<ShowSummaryDto>();
+                return new PaginatedResponseDto<ShowSummaryDto>();
             }
 
             var favoriteShowIds = await _dbContext.Users
@@ -40,7 +40,7 @@ public class RecommendationService : IRecommendationService
 
             if (!favoriteShowIds.Any())
             {
-                return new List<ShowSummaryDto>();
+                return new PaginatedResponseDto<ShowSummaryDto>();
             }
 
             var favoriteGenres = await _dbContext.Shows
@@ -49,10 +49,11 @@ public class RecommendationService : IRecommendationService
                 .Distinct()
                 .ToListAsync();
 
-            var recommendationsQuery = _dbContext.Shows
+            var recommendationsQuery = _dbContext.Shows.AsNoTracking()
                 .Include(s => s.Genres)
                 .Include(s => s.ShowType)
                 .Where(s => !favoriteShowIds.Contains(s.Id) && s.Genres.Any(g => favoriteGenres.Contains(g.Id)))
+                .Include(s => s.FavoritedByUsers)
                 .Select(s => new
                 {
                     Show = s,
@@ -69,16 +70,16 @@ public class RecommendationService : IRecommendationService
                 _ => orderedQuery.ThenByDescending(x => x.Show.ReleaseDate)
             };
 
-            var skip = (parameters.Page - 1) * parameters.PageSize;
-            var recommendations = await orderedQuery
-                .Skip(skip)
-                .Take(parameters.PageSize)
-                .Select(x => x.Show)
-                .ToListAsync();
+            var finalQuery = orderedQuery.Select(x => x.Show);
 
-            return recommendations.Select(s => s.ToShowSummaryDto()).ToList();
+            if (parameters.Format != ExportFormat.json)
+            {
+                return await finalQuery.ToExportResponseAsync(shows => shows.Select(s => s.ToShowSummaryDto()).ToList());
+            }
+
+            return await finalQuery.ToPaginatedDtoAsync(parameters, shows => shows.Select(s => s.ToShowSummaryDto()).ToList());
         });
 
-        return cachedRecommendations ?? new List<ShowSummaryDto>();
+        return paginatedResponse ?? new PaginatedResponseDto<ShowSummaryDto>();
     }
 }

@@ -23,14 +23,16 @@ public class GenresController : ExportableControllerBase
     /// <param name="parameters">Query parameters for sorting, pagination, and export format.</param>
     /// <response code="200">Returns a list of genres or a file if an export format is specified.</response>
     [HttpGet]
-    [ProducesResponseType(typeof(IEnumerable<GenreDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(PaginatedResponseDto<GenreDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(FileContentResult), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetAllGenres(
         [FromQuery] QueryParameters<GenreSortBy> parameters)
     {
-        var genres = await _genreService.GetAllGenresAsync(parameters);
+        var paginatedGenres = await _genreService.GetAllGenresAsync(parameters);
 
-        return CreateExportOrOkResult(genres, parameters.Format, "Genres Report", "genres");
+        return parameters.Format == ExportFormat.json
+            ? Ok(paginatedGenres)
+            : CreateExportOrOkResult(paginatedGenres.Items, parameters.Format, "Genres Report", "genres");
     }
 
     /// <summary>

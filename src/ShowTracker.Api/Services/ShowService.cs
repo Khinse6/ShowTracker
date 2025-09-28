@@ -22,7 +22,7 @@ public class ShowService : IShowService
         _cache = cache;
     }
 
-    public async Task<List<ShowSummaryDto>> GetAllShowsAsync(
+    public async Task<PaginatedResponseDto<ShowSummaryDto>> GetAllShowsAsync(
         string? genre,
         string? type,
         QueryParameters<ShowSortBy> parameters)
@@ -30,7 +30,7 @@ public class ShowService : IShowService
         // A unique cache key is generated based on all query parameters.
         var cacheKey = $"shows-all-{genre}-{type}-{parameters.GetCacheKey()}";
 
-        var cachedShows = await _cache.GetOrCreateAsync(cacheKey, async entry =>
+        var paginatedResponse = await _cache.GetOrCreateAsync(cacheKey, async entry =>
         {
             var cts = GetOrCreateCancellationTokenSource();
             entry.AddExpirationToken(new CancellationChangeToken(cts.Token));
@@ -56,13 +56,17 @@ public class ShowService : IShowService
                 _ => showsQuery.OrderByDescending(s => s.ReleaseDate)
             };
 
-            var skip = (parameters.Page - 1) * parameters.PageSize;
-            var shows = await showsQuery.Skip(skip).Take(parameters.PageSize).ToListAsync();
+            if (parameters.Format != ExportFormat.json)
+            {
+                return await showsQuery.ToExportResponseAsync(shows => shows.Select(s => s.ToShowSummaryDto()).ToList());
+            }
 
-            return shows.Select(s => s.ToShowSummaryDto()).ToList();
+            // For JSON format, use the pagination extension method as before.
+            return await showsQuery.ToPaginatedDtoAsync(parameters,
+                shows => shows.Select(s => s.ToShowSummaryDto()).ToList());
         });
 
-        return cachedShows ?? new List<ShowSummaryDto>();
+        return paginatedResponse ?? new PaginatedResponseDto<ShowSummaryDto>();
     }
 
 

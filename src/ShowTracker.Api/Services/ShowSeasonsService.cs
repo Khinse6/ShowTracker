@@ -22,16 +22,17 @@ public class ShowSeasonsService : IShowSeasonsService
 
     private string ShowSeasonsTokenKey(int showId) => $"show-seasons-cts-{showId}";
 
-    public async Task<List<SeasonDto>> GetSeasonsForShowAsync(int showId, QueryParameters<SeasonSortBy> parameters)
+    public async Task<PaginatedResponseDto<SeasonDto>> GetSeasonsForShowAsync(int showId, QueryParameters<SeasonSortBy> parameters)
     {
         var cacheKey = $"show-seasons-{showId}-{parameters.GetCacheKey()}";
-        var cachedSeasons = await _cache.GetOrCreateAsync(cacheKey, async entry =>
+        var paginatedResponse = await _cache.GetOrCreateAsync(cacheKey, async entry =>
         {
             var cts = GetOrCreateCancellationTokenSource(showId);
             entry.AddExpirationToken(new CancellationChangeToken(cts.Token));
             entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(15);
 
             var seasonsQuery = _context.Seasons
+                .AsNoTracking()
                 .Include(s => s.Episodes)
                 .Where(s => s.ShowId == showId)
                 .AsQueryable();
@@ -45,16 +46,15 @@ public class ShowSeasonsService : IShowSeasonsService
                 _ => seasonsQuery.OrderBy(s => s.SeasonNumber)
             };
 
-            var skip = (parameters.Page - 1) * parameters.PageSize;
-            var seasons = await seasonsQuery
-                .Skip(skip)
-                .Take(parameters.PageSize)
-                .ToListAsync();
+            if (parameters.Format != ExportFormat.json)
+            {
+                return await seasonsQuery.ToExportResponseAsync(seasons => seasons.Select(s => s.ToDto()).ToList());
+            }
 
-            return seasons.Select(s => s.ToDto()).ToList();
+            return await seasonsQuery.ToPaginatedDtoAsync(parameters, seasons => seasons.Select(s => s.ToDto()).ToList());
         });
 
-        return cachedSeasons ?? new List<SeasonDto>();
+        return paginatedResponse ?? new PaginatedResponseDto<SeasonDto>();
     }
 
 
@@ -76,12 +76,7 @@ public class ShowSeasonsService : IShowSeasonsService
     public async Task<SeasonDto> CreateSeasonAsync(CreateSeasonDto dto)
     {
         InvalidateCache(dto.ShowId);
-        var season = new Season
-        {
-            ShowId = dto.ShowId,
-            SeasonNumber = dto.SeasonNumber,
-            ReleaseDate = dto.ReleaseDate
-        };
+        var season = dto.ToEntity();
 
         _context.Seasons.Add(season);
         await _context.SaveChangesAsync();
@@ -95,12 +90,7 @@ public class ShowSeasonsService : IShowSeasonsService
         var show = await _context.Shows.FindAsync(showId);
         if (show == null) { throw new KeyNotFoundException("Show not found"); }
 
-        var seasons = dtos.Select(dto => new Season
-        {
-            ShowId = showId,
-            SeasonNumber = dto.SeasonNumber,
-            ReleaseDate = dto.ReleaseDate
-        }).ToList();
+        var seasons = dtos.Select(dto => dto.ToEntity()).ToList();
 
         using var transaction = await _context.Database.BeginTransactionAsync();
         try
@@ -128,9 +118,7 @@ public class ShowSeasonsService : IShowSeasonsService
 
         if (season == null) { throw new KeyNotFoundException("Season not found"); }
 
-        season.SeasonNumber = dto.SeasonNumber;
-        season.ReleaseDate = dto.ReleaseDate;
-
+        dto.UpdateEntity(season);
         await _context.SaveChangesAsync();
     }
 

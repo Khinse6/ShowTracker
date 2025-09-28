@@ -26,16 +26,18 @@ public class ShowsController : ExportableControllerBase
     /// <param name="parameters">Query parameters for sorting, pagination, and export format.</param>
     /// <response code="200">Returns a list of shows or a file if an export format is specified.</response>
     [HttpGet]
-    [ProducesResponseType(typeof(IEnumerable<ShowSummaryDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(PaginatedResponseDto<ShowSummaryDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(FileContentResult), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetAllShows(
         [FromQuery] string? genre,
         [FromQuery] string? type,
         [FromQuery] QueryParameters<ShowSortBy> parameters)
     {
-        var shows = await _showService.GetAllShowsAsync(genre, type, parameters);
+        var paginatedShows = await _showService.GetAllShowsAsync(genre, type, parameters);
 
-        return CreateExportOrOkResult(shows, parameters.Format, "Shows Report", "shows");
+        return parameters.Format == ExportFormat.json
+            ? Ok(paginatedShows)
+            : CreateExportOrOkResult(paginatedShows.Items, parameters.Format, "Shows Report", "shows");
     }
 
 

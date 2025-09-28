@@ -24,14 +24,16 @@ public class ActorsController : ExportableControllerBase
     /// <param name="parameters">Query parameters for sorting, pagination, and export format.</param>
     /// <response code="200">Returns a list of actors or a file if an export format is specified.</response>
     [HttpGet]
-    [ProducesResponseType(typeof(IEnumerable<ActorSummaryDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(PaginatedResponseDto<ActorSummaryDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(FileContentResult), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetAll(
         [FromQuery] QueryParameters<ActorSortBy> parameters)
     {
-        var actors = await _actorService.GetAllActorsAsync(parameters);
+        var paginatedActors = await _actorService.GetAllActorsAsync(parameters);
 
-        return CreateExportOrOkResult(actors, parameters.Format, "Actors Report", "actors");
+        return parameters.Format == ExportFormat.json
+            ? Ok(paginatedActors)
+            : CreateExportOrOkResult(paginatedActors.Items, parameters.Format, "Actors Report", "actors");
     }
 
     /// <summary>

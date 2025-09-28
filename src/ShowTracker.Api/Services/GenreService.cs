@@ -21,16 +21,16 @@ public class GenreService : IGenreService
         _cache = cache;
     }
 
-    public async Task<List<GenreDto>> GetAllGenresAsync(QueryParameters<GenreSortBy> parameters)
+    public async Task<PaginatedResponseDto<GenreDto>> GetAllGenresAsync(QueryParameters<GenreSortBy> parameters)
     {
         var cacheKey = $"genres-all-{parameters.GetCacheKey()}";
-        var cachedGenres = await _cache.GetOrCreateAsync(cacheKey, async entry =>
+        var paginatedResponse = await _cache.GetOrCreateAsync(cacheKey, async entry =>
         {
             var cts = GetOrCreateCancellationTokenSource();
             entry.AddExpirationToken(new CancellationChangeToken(cts.Token));
             entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(1);
 
-            var genresQuery = _context.Genres.AsQueryable();
+            var genresQuery = _context.Genres.AsNoTracking().AsQueryable();
 
             genresQuery = (parameters.SortBy, parameters.SortOrder) switch
             {
@@ -39,16 +39,15 @@ public class GenreService : IGenreService
                 _ => genresQuery.OrderBy(g => g.Name)
             };
 
-            var skip = (parameters.Page - 1) * parameters.PageSize;
-            var genres = await genresQuery
-                .Skip(skip)
-                .Take(parameters.PageSize)
-                .ToListAsync();
+            if (parameters.Format != ExportFormat.json)
+            {
+                return await genresQuery.ToExportResponseAsync(genres => genres.Select(g => g.ToDto()).ToList());
+            }
 
-            return genres.Select(genre => genre.ToDto()).ToList();
+            return await genresQuery.ToPaginatedDtoAsync(parameters, genres => genres.Select(genre => genre.ToDto()).ToList());
         });
 
-        return cachedGenres ?? new List<GenreDto>();
+        return paginatedResponse ?? new PaginatedResponseDto<GenreDto>();
     }
 
     public async Task<GenreDto?> GetGenreByIdAsync(int id)

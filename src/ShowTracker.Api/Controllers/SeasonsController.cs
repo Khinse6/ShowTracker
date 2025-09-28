@@ -25,15 +25,17 @@ public class SeasonsController : ExportableControllerBase
     /// <response code="200">Returns a list of seasons or a file if an export format is specified.</response>
     /// <response code="404">If the show with the specified ID is not found.</response>
     [HttpGet]
-    [ProducesResponseType(typeof(IEnumerable<SeasonDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(PaginatedResponseDto<SeasonDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(FileContentResult), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetSeasons(
         int showId,
         [FromQuery] QueryParameters<SeasonSortBy> parameters)
     {
-        var seasons = await _seasonService.GetSeasonsForShowAsync(showId, parameters);
+        var paginatedSeasons = await _seasonService.GetSeasonsForShowAsync(showId, parameters);
 
-        return CreateExportOrOkResult(seasons, parameters.Format, $"Seasons for Show ID: {showId}", $"show-{showId}-seasons");
+        return parameters.Format == ExportFormat.json
+            ? Ok(paginatedSeasons)
+            : CreateExportOrOkResult(paginatedSeasons.Items, parameters.Format, $"Seasons for Show ID: {showId}", $"show-{showId}-seasons");
     }
 
     /// <summary>

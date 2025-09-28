@@ -4,7 +4,7 @@ namespace ShowTracker.Api.Interfaces;
 
 public interface IShowTypeService
 {
-    Task<List<ShowTypeDto>> GetAllAsync(QueryParameters<ShowTypeSortBy> parameters);
+    Task<PaginatedResponseDto<ShowTypeDto>> GetAllAsync(QueryParameters<ShowTypeSortBy> parameters);
     Task<ShowTypeDto?> GetByIdAsync(int id);
     Task<ShowTypeDto> CreateAsync(CreateShowTypeDto dto);
     Task<List<ShowTypeDto>> BulkCreateAsync(List<CreateShowTypeDto> dtos);

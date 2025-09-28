@@ -7,7 +7,7 @@ namespace ShowTracker.Api.Interfaces;
 /// </summary>
 public interface IShowActorService
 {
-    Task<IEnumerable<ActorSummaryDto>> GetActorsByShowIdAsync(int showId);
+    Task<PaginatedResponseDto<ActorSummaryDto>> GetActorsByShowIdAsync(int showId, QueryParameters<ActorSortBy> parameters);
     Task AddActorToShowAsync(int showId, int actorId);
     Task RemoveActorFromShowAsync(int showId, int actorId);
 }
