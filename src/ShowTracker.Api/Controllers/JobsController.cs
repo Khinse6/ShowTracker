@@ -1,7 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using ShowTracker.Api.Interfaces;
-using ShowTracker.Api.Services;
 
 namespace ShowTracker.Api.Controllers;
 
@@ -18,7 +17,7 @@ public class JobsController : ControllerBase
     }
 
     /// <summary>
-    /// Manually triggers the job to send recommendation emails to all users.
+    /// Manually triggers the job to send recommendation emails to all users. ()Admin only)
     /// </summary>
     [HttpPost("send-recommendations")]
     [ProducesResponseType(StatusCodes.Status202Accepted)]

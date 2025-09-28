@@ -1,11 +1,8 @@
 using CsvHelper;
 using QuestPDF.Fluent;
 using QuestPDF.Infrastructure;
-using ShowTracker.Api.Dtos;
 using ShowTracker.Api.Helpers.Pdf;
-using System.Collections.Generic;
 using System.Globalization;
-using System.IO;
 
 namespace ShowTracker.Api.Helpers;
 

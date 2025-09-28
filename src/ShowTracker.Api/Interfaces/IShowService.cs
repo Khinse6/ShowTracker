@@ -1,6 +1,5 @@
 
 using ShowTracker.Api.Dtos;
-using ShowTracker.Api.Entities;
 
 namespace ShowTracker.Api.Interfaces;
 

@@ -1,9 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using ShowTracker.Api.Dtos;
-using ShowTracker.Api.Helpers;
 using ShowTracker.Api.Interfaces;
-using ShowTracker.Api.Services;
 using System.Security.Claims;
 
 namespace ShowTracker.Api.Controllers;
@@ -24,6 +22,11 @@ public class UsersController : ExportableControllerBase
 
     private string GetUserId() => User.FindFirstValue(ClaimTypes.NameIdentifier)!;
 
+    /// <summary>
+    /// Gets the current user's list of favorite shows.
+    /// </summary>
+    /// <param name="parameters">Query parameters for sorting, pagination, and export format.</param>
+    /// <response code="200">Returns a list of the user's favorite shows or a file if an export format is specified.</response>
     [HttpGet("me/favorites")]
     [ProducesResponseType(typeof(IEnumerable<ShowSummaryDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(FileContentResult), StatusCodes.Status200OK)]
@@ -35,6 +38,12 @@ public class UsersController : ExportableControllerBase
         return CreateExportOrOkResult(favorites, parameters.Format, "My Favorites", "my-favorites");
     }
 
+    /// <summary>
+    /// Adds a show to the current user's favorites.
+    /// </summary>
+    /// <param name="showId">The ID of the show to add to favorites.</param>
+    /// <response code="204">If the show was successfully added to favorites.</response>
+    /// <response code="404">If the show with the specified ID is not found.</response>
     [HttpPost("me/favorites/{showId}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -51,6 +60,12 @@ public class UsersController : ExportableControllerBase
         }
     }
 
+    /// <summary>
+    /// Removes a show from the current user's favorites.
+    /// </summary>
+    /// <param name="showId">The ID of the show to remove from favorites.</param>
+    /// <response code="204">If the show was successfully removed from favorites.</response>
+    /// <response code="404">If the show with the specified ID is not found.</response>
     [HttpDelete("me/favorites/{showId}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -67,6 +82,11 @@ public class UsersController : ExportableControllerBase
         }
     }
 
+    /// <summary>
+    /// Gets a list of recommended shows for the current user based on their favorites.
+    /// </summary>
+    /// <param name="parameters">Query parameters for sorting, pagination, and export format.</param>
+    /// <response code="200">Returns a list of recommended shows or a file if an export format is specified.</response>
     [HttpGet("me/recommendations")]
     [ProducesResponseType(typeof(IEnumerable<ShowSummaryDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(FileContentResult), StatusCodes.Status200OK)]

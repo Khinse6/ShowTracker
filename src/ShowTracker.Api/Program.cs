@@ -3,6 +3,7 @@ using QuestPDF.Infrastructure;
 using ShowTracker.Api.Data;
 using ShowTracker.Api.Extensions;
 using ShowTracker.Api.Swagger;
+using System.Reflection;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -14,6 +15,7 @@ QuestPDF.Settings.License = LicenseType.Community;
 // Controllers
 // -----------------------
 builder.Services.AddControllers();
+builder.Services.AddMemoryCache();
 
 builder.Services
     .AddDatabaseServices(builder.Configuration)
@@ -32,6 +34,11 @@ builder.Services.AddSwaggerGen(c =>
         Version = "v1",
         Description = "API for managing TV shows and seasons"
     });
+
+    // Set the comments path for the Swagger JSON and UI.
+    var xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
+    var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
+    c.IncludeXmlComments(xmlPath);
 
     // JWT Bearer authentication support
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme

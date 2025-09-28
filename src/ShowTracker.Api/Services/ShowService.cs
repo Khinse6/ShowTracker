@@ -1,4 +1,8 @@
+#nullable enable
+
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Primitives;
 using ShowTracker.Api.Data;
 using ShowTracker.Api.Dtos;
 using ShowTracker.Api.Mappings;
@@ -9,10 +13,13 @@ namespace ShowTracker.Api.Services;
 public class ShowService : IShowService
 {
     private readonly ShowStoreContext _dbContext;
+    private readonly IMemoryCache _cache;
+    private const string ShowsTokenKey = "shows-cts";
 
-    public ShowService(ShowStoreContext dbContext)
+    public ShowService(ShowStoreContext dbContext, IMemoryCache cache)
     {
         _dbContext = dbContext;
+        _cache = cache;
     }
 
     public async Task<List<ShowSummaryDto>> GetAllShowsAsync(
@@ -20,49 +27,71 @@ public class ShowService : IShowService
         string? type,
         QueryParameters<ShowSortBy> parameters)
     {
-        var showsQuery = _dbContext.Shows
-            .Include(s => s.Genres)
-            .Include(s => s.ShowType)
-            .AsNoTracking()
-            .AsQueryable();
+        // A unique cache key is generated based on all query parameters.
+        var cacheKey = $"shows-all-{genre}-{type}-{parameters.GetCacheKey()}";
 
-        if (!string.IsNullOrWhiteSpace(genre))
-        { showsQuery = showsQuery.Where(s => s.Genres.Any(g => g.Name.ToLower() == genre.ToLower())); }
-
-        if (!string.IsNullOrWhiteSpace(type))
-        { showsQuery = showsQuery.Where(s => s.ShowType.Name.ToLower() == type.ToLower()); }
-
-        showsQuery = (parameters.SortBy, parameters.SortOrder) switch
+        var cachedShows = await _cache.GetOrCreateAsync(cacheKey, async entry =>
         {
-            (ShowSortBy.Title, SortOrder.asc) => showsQuery.OrderBy(s => s.Title),
-            (ShowSortBy.Title, SortOrder.desc) => showsQuery.OrderByDescending(s => s.Title),
-            (ShowSortBy.ReleaseDate, SortOrder.asc) => showsQuery.OrderBy(s => s.ReleaseDate),
-            _ => showsQuery.OrderByDescending(s => s.ReleaseDate)
-        };
+            var cts = GetOrCreateCancellationTokenSource();
+            entry.AddExpirationToken(new CancellationChangeToken(cts.Token));
+            entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(15);
 
-        var skip = (parameters.Page - 1) * parameters.PageSize;
-        var shows = await showsQuery.Skip(skip).Take(parameters.PageSize).ToListAsync();
+            var showsQuery = _dbContext.Shows
+                .Include(s => s.Genres)
+                .Include(s => s.ShowType)
+                .AsNoTracking()
+                .AsQueryable();
 
-        return shows.Select(s => s.ToShowSummaryDto()).ToList();
+            if (!string.IsNullOrWhiteSpace(genre))
+            { showsQuery = showsQuery.Where(s => s.Genres.Any(g => g.Name.ToLower() == genre.ToLower())); }
+
+            if (!string.IsNullOrWhiteSpace(type))
+            { showsQuery = showsQuery.Where(s => s.ShowType.Name.ToLower() == type.ToLower()); }
+
+            showsQuery = (parameters.SortBy, parameters.SortOrder) switch
+            {
+                (ShowSortBy.Title, SortOrder.asc) => showsQuery.OrderBy(s => s.Title),
+                (ShowSortBy.Title, SortOrder.desc) => showsQuery.OrderByDescending(s => s.Title),
+                (ShowSortBy.ReleaseDate, SortOrder.asc) => showsQuery.OrderBy(s => s.ReleaseDate),
+                _ => showsQuery.OrderByDescending(s => s.ReleaseDate)
+            };
+
+            var skip = (parameters.Page - 1) * parameters.PageSize;
+            var shows = await showsQuery.Skip(skip).Take(parameters.PageSize).ToListAsync();
+
+            return shows.Select(s => s.ToShowSummaryDto()).ToList();
+        });
+
+        return cachedShows ?? new List<ShowSummaryDto>();
     }
 
 
     public async Task<ShowDetailsDto?> GetShowByIdAsync(int id)
     {
-        var show = await _dbContext.Shows
-                .Include(s => s.Genres)
-                .Include(s => s.ShowType)
-                .Include(s => s.Seasons)
-                        .ThenInclude(se => se.Episodes)
-                .Include(s => s.Actors)
-                .AsNoTracking() // Use AsNoTracking for read-only queries
-                .FirstOrDefaultAsync(s => s.Id == id);
+        var cacheKey = $"show-{id}";
 
-        return show?.ToShowDetailsDto();
+        return await _cache.GetOrCreateAsync(cacheKey, async entry =>
+        {
+            var cts = GetOrCreateCancellationTokenSource();
+            entry.AddExpirationToken(new CancellationChangeToken(cts.Token));
+            entry.SlidingExpiration = TimeSpan.FromMinutes(30);
+
+            var show = await _dbContext.Shows
+                    .Include(s => s.Genres)
+                    .Include(s => s.ShowType)
+                    .Include(s => s.Seasons)
+                            .ThenInclude(se => se.Episodes)
+                    .Include(s => s.Actors)
+                    .AsNoTracking() // Use AsNoTracking for read-only queries
+                    .FirstOrDefaultAsync(s => s.Id == id);
+
+            return show?.ToShowDetailsDto();
+        });
     }
 
     public async Task<ShowSummaryDto> CreateShowAsync(CreateShowDto newShowDto)
     {
+        InvalidateCache();
         var show = newShowDto.ToEntity();
         _dbContext.Shows.Add(show);
         await _dbContext.SaveChangesAsync();
@@ -72,6 +101,7 @@ public class ShowService : IShowService
     public async Task<List<ShowSummaryDto>> CreateShowsAsync(List<CreateShowDto> dtos)
     {
         if (dtos == null || !dtos.Any()) { return new List<ShowSummaryDto>(); }
+        InvalidateCache();
 
         var shows = dtos.Select(dto => dto.ToEntity()).ToList();
 
@@ -93,6 +123,9 @@ public class ShowService : IShowService
 
     public async Task UpdateShowAsync(int id, UpdateShowDto updateShowDto)
     {
+        InvalidateCache();
+        _cache.Remove($"show-{id}");
+
         var existing = await _dbContext.Shows.FindAsync(id);
         if (existing is null)
         {
@@ -105,6 +138,9 @@ public class ShowService : IShowService
 
     public async Task DeleteShowAsync(int id)
     {
+        InvalidateCache();
+        _cache.Remove($"show-{id}");
+
         var show = await _dbContext.Shows.FindAsync(id);
         if (show is null)
         {
@@ -113,5 +149,22 @@ public class ShowService : IShowService
 
         _dbContext.Shows.Remove(show);
         await _dbContext.SaveChangesAsync();
+    }
+
+    private CancellationTokenSource GetOrCreateCancellationTokenSource()
+    {
+        var cts = _cache.GetOrCreate(ShowsTokenKey, entry =>
+        {
+            entry.SetPriority(CacheItemPriority.NeverRemove);
+            return new CancellationTokenSource();
+        });
+
+        return cts ?? throw new InvalidOperationException("Could not create or retrieve CancellationTokenSource from cache.");
+    }
+
+    private void InvalidateCache()
+    {
+        GetOrCreateCancellationTokenSource().Cancel();
+        _cache.Remove(ShowsTokenKey);
     }
 }

@@ -1,5 +1,3 @@
-using ShowTracker.Api.Dtos;
-
 namespace ShowTracker.Api.Dtos;
 
 public class UserPersonalDataDto

@@ -1,7 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using ShowTracker.Api.Dtos;
 using ShowTracker.Api.Helpers;
-using System.Collections.Generic;
 
 namespace ShowTracker.Api.Controllers;
 

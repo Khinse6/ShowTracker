@@ -8,56 +8,73 @@ public class ShowStoreContext : IdentityDbContext<User>
 {
     public ShowStoreContext(DbContextOptions<ShowStoreContext> options) : base(options) { }
 
-    public DbSet<Show> Shows => Set<Show>();
-    public DbSet<Season> Seasons => Set<Season>();
-    public DbSet<Episode> Episodes => Set<Episode>();
-    public DbSet<Genre> Genres => Set<Genre>();
-    public DbSet<Actor> Actors => Set<Actor>();
-    public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
-    public DbSet<ShowType> ShowTypes { get; set; } = null!;
+    public virtual DbSet<Show> Shows { get; set; }
+    public virtual DbSet<Season> Seasons { get; set; }
+    public virtual DbSet<Episode> Episodes { get; set; }
+    public virtual DbSet<Actor> Actors { get; set; }
+    public virtual DbSet<Genre> Genres { get; set; }
+    public virtual DbSet<ShowType> ShowTypes { get; set; }
+    public virtual DbSet<RefreshToken> RefreshTokens { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        base.OnModelCreating(modelBuilder); // Important for Identity
+        base.OnModelCreating(modelBuilder);
 
-        // Configure many-to-many: User <-> Show (favorites)
+        // Configure the one-to-many relationship between User and RefreshToken
+        modelBuilder.Entity<User>()
+            .HasMany(u => u.RefreshTokens)
+            .WithOne(rt => rt.User)
+            .HasForeignKey(rt => rt.UserId);
+
+        // Configure the many-to-many relationship between Show and Genre
+        modelBuilder.Entity<Show>()
+            .HasMany(s => s.Genres)
+            .WithMany(g => g.Shows)
+            .UsingEntity<Dictionary<string, object>>(
+                "ShowGenre",
+                j => j.HasOne<Genre>().WithMany().OnDelete(DeleteBehavior.Cascade),
+                j => j.HasOne<Show>().WithMany().OnDelete(DeleteBehavior.Cascade)
+            );
+
+        // Configure the many-to-many relationship for User Favorites
         modelBuilder.Entity<User>()
             .HasMany(u => u.FavoriteShows)
             .WithMany(s => s.FavoritedByUsers)
             .UsingEntity<Dictionary<string, object>>(
                 "UserFavorites",
-                j => j.HasOne<Show>().WithMany().HasForeignKey("ShowId").OnDelete(DeleteBehavior.Cascade),
-                j => j.HasOne<User>().WithMany().HasForeignKey("UserId").OnDelete(DeleteBehavior.Cascade)
+                j => j.HasOne<Show>().WithMany().OnDelete(DeleteBehavior.Cascade),
+                j => j.HasOne<User>().WithMany().OnDelete(DeleteBehavior.Cascade)
             );
 
-        // Configure one-to-many: User <-> RefreshToken
-        modelBuilder.Entity<RefreshToken>()
-            .HasOne(rt => rt.User)
-            .WithMany(u => u.RefreshTokens)
-            .HasForeignKey(rt => rt.UserId)
+        // Configure the many-to-many relationship between Show and Actor
+        modelBuilder.Entity<Show>()
+            .HasMany(s => s.Actors)
+            .WithMany(a => a.Shows)
+            .UsingEntity<Dictionary<string, object>>(
+                "ShowActor",
+                j => j.HasOne<Actor>().WithMany().OnDelete(DeleteBehavior.Cascade),
+                j => j.HasOne<Show>().WithMany().OnDelete(DeleteBehavior.Cascade)
+            );
+
+        // Configure the one-to-many relationship between ShowType and Show
+        modelBuilder.Entity<ShowType>()
+            .HasMany(st => st.Shows)
+            .WithOne(s => s.ShowType)
+            .HasForeignKey(s => s.ShowTypeId)
             .OnDelete(DeleteBehavior.Cascade);
 
-        // Configure Show <-> Genre Many-to-Many
+        // Configure the one-to-many relationship between Show and Season
         modelBuilder.Entity<Show>()
-            .HasMany(s => s.Genres)
-            .WithMany(g => g.Shows)
-            .UsingEntity<Dictionary<string, object>>(
-                "ShowGenres",
-                j => j.HasOne<Genre>().WithMany().HasForeignKey("GenresId").OnDelete(DeleteBehavior.Cascade),
-                j => j.HasOne<Show>().WithMany().HasForeignKey("ShowsId").OnDelete(DeleteBehavior.Cascade)
-            );
+            .HasMany(s => s.Seasons)
+            .WithOne(se => se.Show)
+            .HasForeignKey(se => se.ShowId)
+            .OnDelete(DeleteBehavior.Cascade);
 
-        modelBuilder.Entity<Show>()
-        .HasMany(s => s.Actors)
-        .WithMany(a => a.Shows)
-        .UsingEntity<Dictionary<string, object>>(
-            "ShowActors",
-            j => j.HasOne<Actor>().WithMany().HasForeignKey("ActorId").OnDelete(DeleteBehavior.Cascade),
-            j => j.HasOne<Show>().WithMany().HasForeignKey("ShowId").OnDelete(DeleteBehavior.Cascade)
-        );
-
-        // NOTE: All seeding is now done programmatically in DbInitializer.cs.
-        // The SeedData.cs file can be removed.
+        // Configure the one-to-many relationship between Season and Episode
+        modelBuilder.Entity<Season>()
+            .HasMany(se => se.Episodes)
+            .WithOne(ep => ep.Season)
+            .HasForeignKey(ep => ep.SeasonId)
+            .OnDelete(DeleteBehavior.Cascade);
     }
-
 }

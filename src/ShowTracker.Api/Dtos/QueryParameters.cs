@@ -18,6 +18,7 @@ public class QueryParameters<T> where T : Enum
     public T? SortBy { get; set; }
     public SortOrder SortOrder { get; set; } = SortOrder.asc;
     public ExportFormat Format { get; set; } = ExportFormat.json;
+    public string GetCacheKey() => $"{this.Page}-{this.PageSize}-{this.SortBy}-{this.SortOrder}-{this.Format}";
 }
 
 [JsonConverter(typeof(JsonStringEnumConverter))]

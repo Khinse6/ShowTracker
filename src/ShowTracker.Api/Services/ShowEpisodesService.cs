@@ -1,4 +1,6 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Primitives;
 using ShowTracker.Api.Data;
 using ShowTracker.Api.Dtos;
 using ShowTracker.Api.Entities;
@@ -10,46 +12,67 @@ namespace ShowTracker.Api.Services;
 public class ShowEpisodesService : IShowEpisodesService
 {
     private readonly ShowStoreContext _context;
+    private readonly IMemoryCache _cache;
 
-    public ShowEpisodesService(ShowStoreContext context)
+    public ShowEpisodesService(ShowStoreContext context, IMemoryCache cache)
     {
         _context = context;
+        _cache = cache;
     }
+
+    private string SeasonEpisodesTokenKey(int seasonId) => $"season-episodes-cts-{seasonId}";
 
     public async Task<List<EpisodeDto>> GetEpisodesForSeasonAsync(int seasonId, QueryParameters<EpisodeSortBy> parameters)
     {
-        var episodesQuery = _context.Episodes
-            .Where(e => e.SeasonId == seasonId)
-            .AsQueryable();
-
-        episodesQuery = (parameters.SortBy, parameters.SortOrder) switch
+        var cacheKey = $"season-episodes-{seasonId}-{parameters.GetCacheKey()}";
+        var cachedEpisodes = await _cache.GetOrCreateAsync(cacheKey, async entry =>
         {
-            (EpisodeSortBy.EpisodeNumber, SortOrder.asc) => episodesQuery.OrderBy(e => e.EpisodeNumber),
-            (EpisodeSortBy.EpisodeNumber, SortOrder.desc) => episodesQuery.OrderByDescending(e => e.EpisodeNumber),
-            (EpisodeSortBy.ReleaseDate, SortOrder.asc) => episodesQuery.OrderBy(e => e.ReleaseDate),
-            (EpisodeSortBy.ReleaseDate, SortOrder.desc) => episodesQuery.OrderByDescending(e => e.ReleaseDate),
-            _ => episodesQuery.OrderBy(e => e.EpisodeNumber)
-        };
+            var cts = GetOrCreateCancellationTokenSource(seasonId);
+            entry.AddExpirationToken(new CancellationChangeToken(cts.Token));
+            entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(15);
 
-        var skip = (parameters.Page - 1) * parameters.PageSize;
-        var episodes = await episodesQuery
-            .Skip(skip)
-            .Take(parameters.PageSize)
-            .ToListAsync();
+            var episodesQuery = _context.Episodes
+                .Where(e => e.SeasonId == seasonId)
+                .AsQueryable();
 
-        return episodes.Select(e => e.ToDto()).ToList();
+            episodesQuery = (parameters.SortBy, parameters.SortOrder) switch
+            {
+                (EpisodeSortBy.EpisodeNumber, SortOrder.asc) => episodesQuery.OrderBy(e => e.EpisodeNumber),
+                (EpisodeSortBy.EpisodeNumber, SortOrder.desc) => episodesQuery.OrderByDescending(e => e.EpisodeNumber),
+                (EpisodeSortBy.ReleaseDate, SortOrder.asc) => episodesQuery.OrderBy(e => e.ReleaseDate),
+                (EpisodeSortBy.ReleaseDate, SortOrder.desc) => episodesQuery.OrderByDescending(e => e.ReleaseDate),
+                _ => episodesQuery.OrderBy(e => e.EpisodeNumber)
+            };
+
+            var skip = (parameters.Page - 1) * parameters.PageSize;
+            var episodes = await episodesQuery
+                .Skip(skip)
+                .Take(parameters.PageSize)
+                .ToListAsync();
+
+            return episodes.Select(e => e.ToDto()).ToList();
+        });
+
+        return cachedEpisodes ?? new List<EpisodeDto>();
     }
 
     public async Task<EpisodeDto?> GetEpisodeAsync(int seasonId, int episodeId)
     {
-        var episode = await _context.Episodes
-            .FirstOrDefaultAsync(e => e.Id == episodeId && e.SeasonId == seasonId);
-
-        return episode?.ToDto();
+        var cacheKey = $"season-episode-{seasonId}-{episodeId}";
+        return await _cache.GetOrCreateAsync(cacheKey, async entry =>
+        {
+            var cts = GetOrCreateCancellationTokenSource(seasonId);
+            entry.AddExpirationToken(new CancellationChangeToken(cts.Token));
+            entry.SlidingExpiration = TimeSpan.FromMinutes(30);
+            var episode = await _context.Episodes
+                .FirstOrDefaultAsync(e => e.Id == episodeId && e.SeasonId == seasonId);
+            return episode?.ToDto();
+        });
     }
 
     public async Task<EpisodeDto> CreateEpisodeAsync(int seasonId, CreateEpisodeDto dto)
     {
+        InvalidateCache(seasonId);
         var season = await _context.Seasons.FindAsync(seasonId);
         if (season == null) { throw new KeyNotFoundException("Season not found"); }
 
@@ -69,6 +92,7 @@ public class ShowEpisodesService : IShowEpisodesService
 
     public async Task<List<EpisodeDto>> CreateEpisodesAsync(int seasonId, List<CreateEpisodeDto> dtos)
     {
+        InvalidateCache(seasonId);
         var season = await _context.Seasons.FindAsync(seasonId);
         if (season == null) { throw new KeyNotFoundException("Season not found"); }
 
@@ -100,6 +124,9 @@ public class ShowEpisodesService : IShowEpisodesService
 
     public async Task UpdateEpisodeAsync(int seasonId, int episodeId, UpdateEpisodeDto dto)
     {
+        InvalidateCache(seasonId);
+        _cache.Remove($"season-episode-{seasonId}-{episodeId}");
+
         var episode = await _context.Episodes
             .FirstOrDefaultAsync(e => e.Id == episodeId && e.SeasonId == seasonId);
 
@@ -115,6 +142,9 @@ public class ShowEpisodesService : IShowEpisodesService
 
     public async Task DeleteEpisodeAsync(int seasonId, int episodeId)
     {
+        InvalidateCache(seasonId);
+        _cache.Remove($"season-episode-{seasonId}-{episodeId}");
+
         var episode = await _context.Episodes
             .FirstOrDefaultAsync(e => e.Id == episodeId && e.SeasonId == seasonId);
 
@@ -122,5 +152,23 @@ public class ShowEpisodesService : IShowEpisodesService
 
         _context.Episodes.Remove(episode);
         await _context.SaveChangesAsync();
+    }
+
+    private CancellationTokenSource GetOrCreateCancellationTokenSource(int seasonId)
+    {
+        var cts = _cache.GetOrCreate(SeasonEpisodesTokenKey(seasonId), entry =>
+        {
+            entry.SetPriority(CacheItemPriority.NeverRemove);
+            return new CancellationTokenSource();
+        });
+
+        return cts ?? throw new InvalidOperationException("Could not create or retrieve CancellationTokenSource from cache.");
+    }
+
+    private void InvalidateCache(int seasonId)
+    {
+        var tokenKey = SeasonEpisodesTokenKey(seasonId);
+        GetOrCreateCancellationTokenSource(seasonId).Cancel();
+        _cache.Remove(tokenKey);
     }
 }

@@ -1,54 +1,83 @@
+
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Primitives;
 using ShowTracker.Api.Data;
 using ShowTracker.Api.Dtos;
-using ShowTracker.Api.Entities;
 using ShowTracker.Api.Interfaces;
 using ShowTracker.Api.Mappings;
+
 namespace ShowTracker.Api.Services;
 
 public class ActorService : IActorService
 {
     private readonly ShowStoreContext _dbContext;
+    private readonly IMemoryCache _cache;
+    private const string ActorsTokenKey = "actors-cts";
 
-    public ActorService(ShowStoreContext dbContext)
+    public ActorService(ShowStoreContext dbContext, IMemoryCache cache)
     {
         _dbContext = dbContext;
+        _cache = cache;
     }
 
     public async Task<List<ActorSummaryDto>> GetAllActorsAsync(QueryParameters<ActorSortBy> parameters)
     {
-        var actorsQuery = _dbContext.Actors.AsQueryable();
+        var cacheKey = $"actors-all-{parameters.GetCacheKey()}";
 
-        actorsQuery = (parameters.SortBy, parameters.SortOrder) switch
+        var cachedActors = await _cache.GetOrCreateAsync(cacheKey, async entry =>
         {
-            (ActorSortBy.Name, SortOrder.desc) => actorsQuery.OrderByDescending(a => a.Name),
-            (ActorSortBy.Name, SortOrder.asc) => actorsQuery.OrderBy(a => a.Name),
-            _ => actorsQuery.OrderBy(a => a.Name)
-        };
+            var cts = GetOrCreateCancellationTokenSource();
+            entry.AddExpirationToken(new CancellationChangeToken(cts.Token));
+            entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(1);
 
-        var skip = (parameters.Page - 1) * parameters.PageSize;
-        var actors = await actorsQuery
-            .Include(a => a.Shows)
-            .Skip(skip)
-            .Take(parameters.PageSize)
-            .ToListAsync();
+            var actorsQuery = _dbContext.Actors.AsQueryable();
 
-        return actors.Select(actor => actor.ToSummaryDto()).ToList();
+            actorsQuery = (parameters.SortBy, parameters.SortOrder) switch
+            {
+                (ActorSortBy.Name, SortOrder.desc) => actorsQuery.OrderByDescending(a => a.Name),
+                (ActorSortBy.Name, SortOrder.asc) => actorsQuery.OrderBy(a => a.Name),
+                _ => actorsQuery.OrderBy(a => a.Name)
+            };
+
+            var skip = (parameters.Page - 1) * parameters.PageSize;
+            var actors = await actorsQuery
+                .Include(a => a.Shows)
+                .Skip(skip)
+                .Take(parameters.PageSize)
+                .ToListAsync();
+
+            return actors.Select(actor => actor.ToSummaryDto()).ToList();
+        });
+
+        return cachedActors ?? new List<ActorSummaryDto>();
     }
 
     public async Task<ActorDetailsDto> GetActorByIdAsync(int id)
     {
-        var actor = await _dbContext.Actors
-            .Include(a => a.Shows)
-            .FirstOrDefaultAsync(a => a.Id == id);
+        var cacheKey = $"actor-{id}";
 
-        if (actor == null) { throw new KeyNotFoundException("Actor not found"); }
+        var cachedActor = await _cache.GetOrCreateAsync(cacheKey, async entry =>
+        {
+            var cts = GetOrCreateCancellationTokenSource();
+            entry.AddExpirationToken(new CancellationChangeToken(cts.Token));
+            entry.SlidingExpiration = TimeSpan.FromMinutes(30);
 
-        return actor.ToDetailsDto();
+            var actor = await _dbContext.Actors
+                .Include(a => a.Shows)
+                .FirstOrDefaultAsync(a => a.Id == id);
+
+            // Allow null to be cached to prevent repeated DB hits for non-existent IDs.
+            return actor?.ToDetailsDto();
+        });
+
+        return cachedActor ?? throw new KeyNotFoundException("Actor not found");
     }
 
     public async Task<ActorSummaryDto> CreateActorAsync(CreateActorDto dto)
     {
+        InvalidateCache();
+
         var actor = dto.ToEntity();
         _dbContext.Actors.Add(actor);
         await _dbContext.SaveChangesAsync();
@@ -58,8 +87,11 @@ public class ActorService : IActorService
 
     public async Task UpdateActorAsync(int id, UpdateActorDto dto)
     {
+        InvalidateCache();
+        _cache.Remove($"actor-{id}");
+
         var actor = await _dbContext.Actors.FindAsync(id);
-        if (actor == null) { throw new KeyNotFoundException("Actor not found"); }
+        if (actor is null) { throw new KeyNotFoundException("Actor not found"); }
 
         dto.UpdateEntity(actor);
         await _dbContext.SaveChangesAsync();
@@ -67,10 +99,30 @@ public class ActorService : IActorService
 
     public async Task DeleteActorAsync(int id)
     {
+        InvalidateCache();
+        _cache.Remove($"actor-{id}");
+
         var actor = await _dbContext.Actors.FindAsync(id);
-        if (actor == null) { throw new KeyNotFoundException("Actor not found"); }
+        if (actor is null) { throw new KeyNotFoundException("Actor not found"); }
 
         _dbContext.Actors.Remove(actor);
         await _dbContext.SaveChangesAsync();
+    }
+
+    private CancellationTokenSource GetOrCreateCancellationTokenSource()
+    {
+        var cts = _cache.GetOrCreate(ActorsTokenKey, entry =>
+        {
+            entry.SetPriority(CacheItemPriority.NeverRemove);
+            return new CancellationTokenSource();
+        });
+
+        return cts ?? throw new InvalidOperationException("Could not create or retrieve CancellationTokenSource from cache.");
+    }
+
+    private void InvalidateCache()
+    {
+        GetOrCreateCancellationTokenSource().Cancel();
+        _cache.Remove(ActorsTokenKey);
     }
 }

@@ -74,34 +74,41 @@ public static class DbInitializer
         await context.SaveChangesAsync();
 
         // Create dictionaries for robust, non-index-based lookups
-        var genresDict = genres.ToDictionary(g => g.Name);
-        var actorsDict = actors.ToDictionary(a => a.Name);
+        var genresDict = await context.Genres.ToDictionaryAsync(g => g.Name);
+        var actorsDict = await context.Actors.ToDictionaryAsync(a => a.Name);
+        var showsDict = await context.Shows.ToDictionaryAsync(s => s.Title);
 
         // Establish Relationships
-        shows[0].Genres.AddRange(new[] { genresDict["Sci-Fi"], genresDict["Horror"], genresDict["Drama"] });
-        shows[1].Genres.AddRange(new[] { genresDict["Drama"], genresDict["History"] });
-        shows[2].Genres.AddRange(new[] { genresDict["Drama"], genresDict["Romance"] });
+        showsDict["Stranger Things"].Genres.AddRange(new[] { genresDict["Sci-Fi"], genresDict["Horror"], genresDict["Drama"] });
+        showsDict["The Crown"].Genres.AddRange(new[] { genresDict["Drama"], genresDict["History"] });
+        showsDict["Bridgerton"].Genres.AddRange(new[] { genresDict["Drama"], genresDict["Romance"] });
 
-        shows[0].Actors.AddRange(new[] { actorsDict["Winona Ryder"], actorsDict["David Harbour"] });
-        shows[1].Actors.Add(actorsDict["Olivia Colman"]);
-        shows[2].Actors.AddRange(new[] { actorsDict["Phoebe Dynevor"], actorsDict["Regé-Jean Page"] });
+        showsDict["Stranger Things"].Actors.AddRange(new[] { actorsDict["Winona Ryder"], actorsDict["David Harbour"] });
+        showsDict["The Crown"].Actors.Add(actorsDict["Olivia Colman"]);
+        showsDict["Bridgerton"].Actors.AddRange(new[] { actorsDict["Phoebe Dynevor"], actorsDict["Regé-Jean Page"] });
+
+        // Save the many-to-many relationship changes
+        await context.SaveChangesAsync();
 
         // Seed Seasons
         var seasons = new[]
         {
-            new Season { ShowId = shows[0].Id, SeasonNumber = 1, ReleaseDate = new DateOnly(2016, 7, 15) },
-            new Season { ShowId = shows[1].Id, SeasonNumber = 1, ReleaseDate = new DateOnly(2016, 11, 4) },
-            new Season { ShowId = shows[2].Id, SeasonNumber = 1, ReleaseDate = new DateOnly(2020, 12, 25) }
+            new Season { Show = showsDict["Stranger Things"], SeasonNumber = 1, ReleaseDate = new DateOnly(2016, 7, 15) },
+            new Season { Show = showsDict["The Crown"], SeasonNumber = 1, ReleaseDate = new DateOnly(2016, 11, 4) },
+            new Season { Show = showsDict["Bridgerton"], SeasonNumber = 1, ReleaseDate = new DateOnly(2020, 12, 25) }
         };
         await context.Seasons.AddRangeAsync(seasons);
         await context.SaveChangesAsync();
 
+        // Create a dictionary for robust season lookups
+        var seasonsDict = await context.Seasons.ToDictionaryAsync(s => new { s.ShowId, s.SeasonNumber });
+
         // Seed Episodes
         var episodes = new[]
         {
-            new Episode { Title = "Chapter One: The Vanishing", Description = "A young boy disappears, revealing a mystery in the town.", EpisodeNumber = 1, ReleaseDate = new DateOnly(2016, 7, 15), SeasonId = seasons[0].Id },
-            new Episode { Title = "Wolferton Splash", Description = "The early reign of Queen Elizabeth II begins.", EpisodeNumber = 1, ReleaseDate = new DateOnly(2016, 11, 4), SeasonId = seasons[1].Id },
-            new Episode { Title = "Diamond of the First Water", Description = "Introduction to the Bridgerton family and London high society.", EpisodeNumber = 1, ReleaseDate = new DateOnly(2020, 12, 25), SeasonId = seasons[2].Id }
+            new Episode { Title = "Chapter One: The Vanishing", Description = "A young boy disappears, revealing a mystery in the town.", EpisodeNumber = 1, ReleaseDate = new DateOnly(2016, 7, 15), Season = seasonsDict[new { ShowId = showsDict["Stranger Things"].Id, SeasonNumber = 1 }] },
+            new Episode { Title = "Wolferton Splash", Description = "The early reign of Queen Elizabeth II begins.", EpisodeNumber = 1, ReleaseDate = new DateOnly(2016, 11, 4), Season = seasonsDict[new { ShowId = showsDict["The Crown"].Id, SeasonNumber = 1 }] },
+            new Episode { Title = "Diamond of the First Water", Description = "Introduction to the Bridgerton family and London high society.", EpisodeNumber = 1, ReleaseDate = new DateOnly(2020, 12, 25), Season = seasonsDict[new { ShowId = showsDict["Bridgerton"].Id, SeasonNumber = 1 }] }
         };
         await context.Episodes.AddRangeAsync(episodes);
 
