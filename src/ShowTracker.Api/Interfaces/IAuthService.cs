@@ -1,3 +1,4 @@
+using ShowTracker.Api.Dtos;
 using ShowTracker.Api.Entities;
 using ShowTracker.Api.Services;
 
@@ -5,9 +6,9 @@ namespace ShowTracker.Api.Interfaces;
 
 public interface IAuthService
 {
-    Task<User?> RegisterAsync(string email, string password, string displayName, bool acceptedTerms);
-    Task<(string accessToken, string refreshToken)?> LoginAsync(string email, string password);
-    Task<(RefreshResultStatus status, string? accessToken, string? refreshToken)> RefreshTokenAsync(string token);
+    Task<AuthResponseDto?> RegisterAsync(RegisterDto dto);
+    Task<AuthResponseDto?> LoginAsync(LoginDto dto);
+    Task<(RefreshResultStatus status, AuthResponseDto? response)> RefreshTokenAsync(string token);
     Task LogoutAsync(string refreshToken);
     string GenerateAccessToken(User user);
 }

@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using ShowTracker.Api.Dtos;
 using ShowTracker.Api.Interfaces;
 using ShowTracker.Api.Services;
+using System.ComponentModel.DataAnnotations;
 
 namespace ShowTracker.Api.Controllers;
 
@@ -27,61 +28,57 @@ public class AuthController : ControllerBase
     {
         if (!ModelState.IsValid) { return BadRequest(ModelState); }
 
-        var user = await _authService.RegisterAsync(dto.Email, dto.Password, dto.DisplayName, dto.AcceptedTerms);
-        if (user == null) { return BadRequest("Registration failed. Email may already be in use."); }
+        var response = await _authService.RegisterAsync(dto);
+        if (response == null) { return BadRequest(new { message = "Registration failed. Email may already be in use." }); }
 
-        return Ok(new { user.Id, user.Email, user.DisplayName });
+        return Ok(response); // This now returns AuthResponseDto
     }
 
     /// <summary>
-    /// Logs in a user and returns authentication tokens.
+    /// Logs in a user and returns user info and uthentication tokens.
     /// </summary>
     /// <param name="dto">The user's login credentials.</param>
-    /// <response code="200">Returns the JWT and refresh tokens.</response>
+    /// <response code="200">Returns some user info and tokens</response>
     /// <response code="401">If the login credentials are invalid.</response>
     [HttpPost("login")]
     public async Task<IActionResult> Login([FromBody] LoginDto dto)
     {
         if (!ModelState.IsValid) { return BadRequest(ModelState); }
 
-        var tokens = await _authService.LoginAsync(dto.Email, dto.Password);
-        if (tokens == null) { return Unauthorized("Invalid email or password."); }
+        var response = await _authService.LoginAsync(dto);
+        if (response == null) { return Unauthorized(new { message = "Invalid email or password." }); }
 
-        return Ok(new
-        {
-            tokens.Value.accessToken,
-            tokens.Value.refreshToken
-        });
+        return Ok(response);
     }
 
     /// <summary>
     /// Refreshes an authentication session using a refresh token.
     /// </summary>
-    /// <param name="dto">The current refresh token.</param>
-    /// <response code="200">Returns a new set of JWT and refresh tokens.</response>
+    /// <param name="refreshToken">The current refresh token.</param>
+    /// <response code="200">Returns some user info and new tokens</response>
     /// <response code="401">If the refresh token is invalid, expired, or has been reused.</response>
     [HttpPost("refresh")]
-    public async Task<IActionResult> Refresh([FromBody] RefreshTokenDto dto)
+    public async Task<IActionResult> Refresh([FromBody, Required] string refreshToken)
     {
-        var result = await _authService.RefreshTokenAsync(dto.Token);
+        var result = await _authService.RefreshTokenAsync(refreshToken);
 
         return result.status switch
         {
-            RefreshResultStatus.Success => Ok(new { result.accessToken, result.refreshToken }),
-            RefreshResultStatus.Reused => Unauthorized("Refresh token reuse detected. All sessions have been revoked. Please log in again."),
-            _ => Unauthorized("Invalid or expired refresh token.")
+            RefreshResultStatus.Success => Ok(result.response),
+            RefreshResultStatus.Reused => Unauthorized(new { message = "Refresh token reuse detected. All sessions have been revoked. Please log in again." }),
+            _ => Unauthorized(new { message = "Invalid or expired refresh token." })
         };
     }
 
     /// <summary>
     /// Logs out the user by revoking the provided refresh token.
     /// </summary>
-    /// <param name="dto">The refresh token to revoke.</param>
+    /// <param name="refreshToken">The refresh token to revoke.</param>
     /// <response code="204">If the logout was successful.</response>
     [HttpPost("logout")]
-    public async Task<IActionResult> Logout([FromBody] RefreshTokenDto dto)
+    public async Task<IActionResult> Logout([FromBody, Required] string refreshToken)
     {
-        await _authService.LogoutAsync(dto.Token);
+        await _authService.LogoutAsync(refreshToken);
         return NoContent();
     }
 }

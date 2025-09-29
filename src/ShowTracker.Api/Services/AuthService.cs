@@ -2,8 +2,10 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using ShowTracker.Api.Data;
+using ShowTracker.Api.Dtos;
 using ShowTracker.Api.Entities;
 using ShowTracker.Api.Interfaces;
+using ShowTracker.Api.Mappings;
 using ShowTracker.Api.Settings;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
@@ -32,32 +34,35 @@ public class AuthService : IAuthService
         _context = context;
     }
 
-    public async Task<User?> RegisterAsync(string email, string password, string displayName, bool acceptedTerms)
+    public async Task<AuthResponseDto?> RegisterAsync(RegisterDto dto)
     {
-        var user = new User
-        {
-            UserName = email,
-            Email = email,
-            DisplayName = displayName,
-            AcceptedTerms = acceptedTerms
-        };
-
-        var result = await _userManager.CreateAsync(user, password);
+        var user = dto.ToEntity();
+        var result = await _userManager.CreateAsync(user, dto.Password);
         if (!result.Succeeded)
         {
+            // It might be useful to log result.Errors here
             return null;
         }
 
         await _userManager.AddToRoleAsync(user, "User");
-        return user;
+
+        // After successful registration, generate tokens and log the user in.
+        var accessToken = GenerateAccessToken(user);
+        var refreshToken = GenerateRefreshToken();
+        refreshToken.UserId = user.Id;
+
+        _context.RefreshTokens.Add(refreshToken);
+        await _context.SaveChangesAsync();
+
+        return user.ToAuthResponseDto(accessToken, refreshToken.Token);
     }
 
-    public async Task<(string accessToken, string refreshToken)?> LoginAsync(string email, string password)
+    public async Task<AuthResponseDto?> LoginAsync(LoginDto dto)
     {
-        var result = await _signInManager.PasswordSignInAsync(email, password, false, false);
+        var result = await _signInManager.PasswordSignInAsync(dto.Email, dto.Password, false, false);
         if (!result.Succeeded) { return null; }
 
-        var user = await _userManager.FindByEmailAsync(email);
+        var user = await _userManager.FindByEmailAsync(dto.Email);
         if (user == null) { return null; }
 
         var accessToken = GenerateAccessToken(user);
@@ -68,15 +73,15 @@ public class AuthService : IAuthService
         _context.RefreshTokens.Add(refreshToken);
         await _context.SaveChangesAsync();
 
-        return (accessToken, refreshToken.Token);
+        return user.ToAuthResponseDto(accessToken, refreshToken.Token);
     }
 
-    public async Task<(RefreshResultStatus status, string? accessToken, string? refreshToken)> RefreshTokenAsync(string token)
+    public async Task<(RefreshResultStatus status, AuthResponseDto? response)> RefreshTokenAsync(string token)
     {
         var refreshToken = _context.Set<RefreshToken>().SingleOrDefault(rt => rt.Token == token);
         if (refreshToken == null)
         {
-            return (RefreshResultStatus.Invalid, null, null);
+            return (RefreshResultStatus.Invalid, null);
         }
 
         // Compromised reuse detection
@@ -84,20 +89,20 @@ public class AuthService : IAuthService
         {
             RevokeAllUserRefreshTokens(refreshToken.UserId);
             await _context.SaveChangesAsync();
-            return (RefreshResultStatus.Reused, null, null);
+            return (RefreshResultStatus.Reused, null);
         }
 
         // Expired or revoked
         if (!refreshToken.IsActive)
         {
-            return (RefreshResultStatus.Invalid, null, null);
+            return (RefreshResultStatus.Invalid, null);
         }
 
         // Normal refresh flow
         var user = await _userManager.FindByIdAsync(refreshToken.UserId);
         if (user == null)
         {
-            return (RefreshResultStatus.Invalid, null, null);
+            return (RefreshResultStatus.Invalid, null);
         }
 
         refreshToken.Revoked = DateTime.UtcNow;
@@ -110,7 +115,7 @@ public class AuthService : IAuthService
         await _context.SaveChangesAsync();
 
         var newAccessToken = GenerateAccessToken(user);
-        return (RefreshResultStatus.Success, newAccessToken, newRefreshToken.Token);
+        return (RefreshResultStatus.Success, user.ToAuthResponseDto(newAccessToken, newRefreshToken.Token));
     }
 
     public async Task LogoutAsync(string refreshToken)
