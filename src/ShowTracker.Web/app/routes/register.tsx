@@ -17,52 +17,54 @@ export default function Register() {
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
 		setError(null);
-		setLoading(true);
 		if (password !== confirmPassword) {
 			setError("Passwords do not match.");
-			setLoading(false);
 			return;
 		}
+
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+    if (!passwordRegex.test(password)) {
+      setError("Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, one number, and one special character.");
+      return;
+    }
+
 		if (!acceptedTerms) {
 			setError("You must accept the terms and conditions to register.");
-			setLoading(false);
 			return;
-		}
-		try {
-      const authResponse = await register({ email, password, displayName, acceptedTerms });
-      
-      console.log("Registration response:", authResponse);
-				if (authResponse.user && authResponse.user.id) {
-					saveAuthResponse(authResponse);
-					navigate("/");
-				}
-				else {
-					setError("Registration failed, please try again.");
-				}
-		} catch (err: any) {
-			console.error("Registration process failed:", err);
-	  
-			// Attempt to get more detailed error info from the API response
-			if (err.response && err.response.data) {
-				const errorData = err.response.data;
-				console.error("Server error details:", errorData);
-		
-				// Handle ASP.NET Core validation errors (ProblemDetails)
-				if (errorData.errors) {
-					const messages = Object.values(errorData.errors).flat();
-					setError(messages.join(" "));
-				} else if (errorData.message) {
-					setError(errorData.message);
-				} else {
-					setError("An unknown registration error occurred.");
-				}
-			} else {
-				setError(err.message || "Registration failed. Please try again.");
-			}
-		} finally {
-			setLoading(false);
-		}
-	}
+    }
+
+    setLoading(true);
+
+        try {
+          const authResponse = await register({ email, password, displayName, acceptedTerms });
+          if (authResponse.user && authResponse.user.id) {
+            saveAuthResponse(authResponse);
+            navigate("/");
+          } else {
+            console.error("Registration failed: No user ID returned");
+            setError("Invalid credentials, please try again.");
+            const errorMessage = "An unknown registration error occurred.";
+            console.error("Registration failed:", errorMessage);
+            setError(errorMessage);
+          }
+        } catch (err: any) {
+          console.error(err);
+          setError("Invalid credentials, please try again.");
+          if (err.response && err.response.data) {
+            const errorData = err.response.data;
+            // Handle ASP.NET Core Identity validation errors
+            if (errorData.errors) {
+              setError(Object.values(errorData.errors).flat().join(" "));
+            } else {
+              setError(errorData.message || errorData.detail || errorData.title || "An unknown registration error occurred.");
+            }
+          } else {
+            setError("An unknown registration error occurred. Please try again.");
+          }
+        } finally {
+          setLoading(false);
+        }
+      };
 
   return (
     <div className="max-w-md mx-auto mt-20 p-6 border rounded shadow">
