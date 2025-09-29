@@ -19,3 +19,6 @@ packages/
 # OS files
 .DS_Store
 Thumbs.db
+src/ShowTracker.Api/ShowStore.db-shm
+src/ShowTracker.Api/ShowStore.db-wal
+src/ShowTracker.Api/ShowStore.db

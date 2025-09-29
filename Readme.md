@@ -38,7 +38,8 @@ cd src/ShowTracker.Api
 dotnet run
 ```
 
-The API will start, typically on a URL like `https://localhost:7...` or `http://localhost:5...`. Check the terminal output for the exact address.
+The API will start, usually at `https://localhost:5046` (the exact port will be shown in the terminal).
+All of the API endpoints can be explored using Swagger at `https://localhost:5046/swagger`.
 
 ### 2. Run the Frontend Development Server
 

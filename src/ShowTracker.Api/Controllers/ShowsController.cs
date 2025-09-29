@@ -23,6 +23,7 @@ public class ShowsController : ExportableControllerBase
     /// </summary>
     /// <param name="genre">Filter shows by genre name.</param>
     /// <param name="type">Filter shows by type name.</param>
+    /// <param name="searchTerm">Search for shows by title or description.</param>
     /// <param name="parameters">Query parameters for sorting, pagination, and export format.</param>
     /// <response code="200">Returns a list of shows or a file if an export format is specified.</response>
     [HttpGet]
@@ -31,9 +32,10 @@ public class ShowsController : ExportableControllerBase
     public async Task<IActionResult> GetAllShows(
         [FromQuery] string? genre,
         [FromQuery] string? type,
+        [FromQuery] string? searchTerm,
         [FromQuery] QueryParameters<ShowSortBy> parameters)
     {
-        var paginatedShows = await _showService.GetAllShowsAsync(genre, type, parameters);
+        var paginatedShows = await _showService.GetAllShowsAsync(genre, type, searchTerm, parameters);
 
         return parameters.Format == ExportFormat.json
             ? Ok(paginatedShows)

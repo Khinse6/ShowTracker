@@ -25,10 +25,11 @@ public class ShowService : IShowService
     public async Task<PaginatedResponseDto<ShowSummaryDto>> GetAllShowsAsync(
         string? genre,
         string? type,
+        string? searchTerm,
         QueryParameters<ShowSortBy> parameters)
     {
         // A unique cache key is generated based on all query parameters.
-        var cacheKey = $"shows-all-{genre}-{type}-{parameters.GetCacheKey()}";
+        var cacheKey = $"shows-all-{genre}-{type}-{searchTerm}-{parameters.GetCacheKey()}";
 
         var paginatedResponse = await _cache.GetOrCreateAsync(cacheKey, async entry =>
         {
@@ -47,6 +48,13 @@ public class ShowService : IShowService
 
             if (!string.IsNullOrWhiteSpace(type))
             { showsQuery = showsQuery.Where(s => s.ShowType.Name.ToLower() == type.ToLower()); }
+
+            if (!string.IsNullOrWhiteSpace(searchTerm))
+            {
+                var term = searchTerm.ToLower();
+                showsQuery = showsQuery.Where(s => s.Title.ToLower().Contains(term) ||
+                                                   (s.Description != null && s.Description.ToLower().Contains(term)));
+            }
 
             showsQuery = (parameters.SortBy, parameters.SortOrder) switch
             {

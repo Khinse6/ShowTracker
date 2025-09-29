@@ -5,7 +5,7 @@ namespace ShowTracker.Api.Interfaces;
 
 public interface IShowService
 {
-    Task<PaginatedResponseDto<ShowSummaryDto>> GetAllShowsAsync(string? genre, string? type, QueryParameters<ShowSortBy> parameters);
+    Task<PaginatedResponseDto<ShowSummaryDto>> GetAllShowsAsync(string? genre, string? type, string? searchTerm, QueryParameters<ShowSortBy> parameters);
 
     Task<ShowDetailsDto?> GetShowByIdAsync(int id);
 
